@@ -1,0 +1,8 @@
+old/
+*/__pycache__
+data/
+logs/
+.DS_Store
+results/
+models/
+cal_models/
