@@ -418,7 +418,7 @@ def evaluate_models(
                     )
                 )
         #################################################################################################################
-        ######################################### Calibration curves + metrics ##########################################
+        ######################################### Calibration curves ##########################################
         #################################################################################################################
         plt.figure(figsize=(12, 8))
         plt.plot(
@@ -426,17 +426,17 @@ def evaluate_models(
         )
         ##Train
         cal_info_trn = plot_calibration(y_train, y_proba_train, "train")
-        CLASS_REPORT_DICT["train"][model_name]["Brier"] = cal_info_trn[0]
-        CLASS_REPORT_DICT["train"][model_name]["ICI"] = cal_info_trn[1]
+        # CLASS_REPORT_DICT["train"][model_name]["Brier"] = cal_info_trn[0]
+        # CLASS_REPORT_DICT["train"][model_name]["ICI"] = cal_info_trn[1]
         ##Val
         cal_info_val = plot_calibration(y_val, y_proba_val, "val")
-        CLASS_REPORT_DICT["val"][model_name]["Brier"] = cal_info_val[0]
-        CLASS_REPORT_DICT["val"][model_name]["ICI"] = cal_info_val[1]
+        # CLASS_REPORT_DICT["val"][model_name]["Brier"] = cal_info_val[0]
+        # CLASS_REPORT_DICT["val"][model_name]["ICI"] = cal_info_val[1]
         ##Test
         if X_test is not None:
             cal_info_tst = plot_calibration(y_test, y_proba_test, "test")
-            CLASS_REPORT_DICT["test"][model_name]["Brier"] = cal_info_tst[0]
-            CLASS_REPORT_DICT["test"][model_name]["ICI"] = cal_info_tst[1]
+            # CLASS_REPORT_DICT["test"][model_name]["Brier"] = cal_info_tst[0]
+            # CLASS_REPORT_DICT["test"][model_name]["ICI"] = cal_info_tst[1]
 
         ### plot all ###
         plt.xlabel("Predicted Probability")
