@@ -34,11 +34,11 @@ git clone https://github.com/AnthonyMatarr/ML-Tongue-Pred.git
 ```
 - Using SSH:
 ```
-\t git clone git@github.com:AnthonyMatarr/ML-Tongue-Pred.git
+git clone git@github.com:AnthonyMatarr/ML-Tongue-Pred.git
 ```
 2. Navigate to project directory
 ```
-cd path/to/ML-Tongue-Pred
+cd ML-Tongue-Pred
 ```
 3. Ensure data/object integrity and consistency
 ```
@@ -57,6 +57,13 @@ BASE_PATH = Path("/Users/<user_name>/Downloads/ML-Tongue-Pred")
 2. Run notebooks
   - Notebooks are numbered by stage, but assuming necessary data is available, can be run on their own
   - **NOTE**: Due to OS/architecture differences and solver choices, minor numerical deviations from the manuscript may occur in model tuning/training/evaluation and SHAP values
+  - 
+## Custom Modifications
+- Forked [MLstakit](https://github.com/Brritany/MLstatkit) and appended some code to `MLstatkit/metrics.py` to add functionality for ICI and Brier score.
+- This change should be consistent once the repo is cloned and 'uv sync --locked' is run, however to view these changes or ensure their consistency, this file can be found at
+```
+~/ML-Tongue-Pred/.venv/lib/python3.12/site-packages/MLstatkit/metrics.py
+```
 ## License: MIT
 - Code licensed under MIT
 - No patient data are included
