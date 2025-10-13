@@ -10,15 +10,26 @@ This project implements Logistic Regression, Support Vector Classifier, LightGBM
 - src/: reusable functions shared across notebooks
 
 ### Omitted directories
-- data/
-  - raw/: Raw data files
-  - processed/: Cleaned raw data files + extracted outcome (target variable) data
-- models/: contains trained models for each outcome
-- cal_models/: contains calibrated models corresponding to those in the models/ directory
-- logs/: logged data produced during model tuning
-- results/
-  - tables/: summary/analysis + SHAP + class report + p-value tables
-  - figures/: ROC + CM + calibration + DCA + p-value heatmap figures
+- ```data/```
+  - ```raw/```: Raw data files
+  - ```processed/```:
+    - Cleaned raw data files
+    - Extracted outcome (target variable) data
+- ```models/```: trained models for each outcome
+- ```cal_models/```: calibrated models corresponding to those in ```models/```
+- ```logs/```: logged data produced during model tuning
+- ```results/```
+  - ```tables/```:
+    - summary & analysis
+    - SHAP 
+    - class report
+    - p-value tables
+  - ```figures/```:
+    - ROC 
+    - CM 
+    - calibration 
+    - DCA 
+    - p-value heatmap 
 
 ## Installation
 
@@ -56,13 +67,14 @@ BASE_PATH = Path("/Users/<user_name>/Downloads/ML-Tongue-Pred")
 ```
 2. Run notebooks
   - Notebooks are numbered by stage, but assuming necessary data is available, can be run on their own
-  - **NOTE**: Due to OS/architecture differences and solver choices, minor numerical deviations from the manuscript may occur in model tuning/training/evaluation and SHAP values
-  - 
+  - **NOTE**: Due to OS/architecture differences and solver choices, despite a consistent random state/seed used throughout the project, minor numerical deviations from the manuscript may occur in model tuning/training/evaluation and SHAP values
+
+    
 ## Custom Modifications
-- Forked [MLstakit](https://github.com/Brritany/MLstatkit) and appended some code to `MLstatkit/metrics.py` to add functionality for ICI and Brier score.
-- This change should be consistent once the repo is cloned and 'uv sync --locked' is run, however to view these changes or ensure their consistency, this file can be found at
+- [MLstakit](https://github.com/Brritany/MLstatkit) was forked and slightly altered, with some code appended to `MLstatkit/metrics.py` to add functionality for ICI and Brier scores.
+- This change should be consistent once the repo is cloned and ```uv sync --locked``` is run, however to view these changes or ensure their consistency, the forked repo can be found [here](https://github.com/AnthonyMatarr/MLstatkit), or in the project directory at:
 ```
-~/ML-Tongue-Pred/.venv/lib/python3.12/site-packages/MLstatkit/metrics.py
+/.venv/lib/python3.12/site-packages/MLstatkit/metrics.py
 ```
 ## License: MIT
 - Code licensed under MIT
