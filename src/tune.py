@@ -423,6 +423,7 @@ def tune_model_mult_outcomes(
 
     ############ Set up paths ############
     if log_file_path.exists():
+        warnings.warn(f"Over-writing log at path: {log_file_path}")
         log_file_path.unlink()
     log_file_path.parent.mkdir(exist_ok=True, parents=True)
     if save_path.exists():
@@ -454,9 +455,7 @@ def tune_model_mult_outcomes(
                 pruner=optuna.pruners.HyperbandPruner(),
             )
             study.optimize(
-                make_objective(
-                    X_train, y_train, model_builder, scoring
-                ),  # pyright: ignore[reportArgumentType]
+                make_objective(X_train, y_train, model_builder, scoring),  # type: ignore
                 n_trials=n_trials,
             )
             result_dict[outcome_name] = {

@@ -70,7 +70,7 @@ def get_cm(
 
 
 def get_discrimination_str(
-    *_, y_true, y_proba, metric_str, threshold, n_bootstraps=3000, random_state=SEED
+    *_, y_true, y_proba, metric_str, threshold, n_bootstraps=5000, random_state=SEED
 ):
     """
     Calculate a value and 95% CI for a given metric using MLStakit.Bootstrapping
@@ -85,7 +85,7 @@ def get_discrimination_str(
         Specify the metric type to get values for
     threshold: float
         Threshold value to use for converting probabilities into hard labels
-    n_bootstraps: Optional int; defaults to 3000
+    n_bootstraps: Optional int; defaults to 5000
         Number of iterations to run bootstrap method for
     random_state: Optional int; defaults to SEED from src.config
         Controls determinism
@@ -365,7 +365,7 @@ def evaluate_models(
                 y_proba=y_proba_train,
                 metric_str=metric_str,
                 threshold=threshold,
-                n_bootstraps=3000,
+                n_bootstraps=n_bootstraps,
                 random_state=SEED,
             )
         ##Val
@@ -388,7 +388,7 @@ def evaluate_models(
                 y_proba=y_proba_val,
                 metric_str=metric_str,
                 threshold=threshold,
-                n_bootstraps=3000,
+                n_bootstraps=n_bootstraps,
                 random_state=SEED,
             )
         ##Test
@@ -413,7 +413,7 @@ def evaluate_models(
                         y_proba=y_proba_test,
                         metric_str=metric_str,
                         threshold=threshold,
-                        n_bootstraps=3000,
+                        n_bootstraps=n_bootstraps,
                         random_state=SEED,
                     )
                 )
