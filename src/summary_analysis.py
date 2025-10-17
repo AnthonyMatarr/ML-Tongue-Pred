@@ -383,16 +383,7 @@ def generate_summary_column(
     summary_list = []
     for col in df_impute:  # Loop through all columns
         summary_list.append({"Feature": f"{col.upper()}", header: ""})
-        if exclude_col(col, outcome, outcome_sub_cols):
-            for entry in all_categories[col]:
-                summary_list.append(
-                    {
-                        "Feature": f"{col.upper()} {entry}",
-                        header: f"---",
-                    }
-                )
-            continue
-        elif col in binary_cols + nominal_cols + ordinal_cols:  # Categorical
+        if col in binary_cols + nominal_cols + ordinal_cols:  # Categorical
             # Get counts and percentages, add blank row for variable name
             counts = df_impute[col].value_counts()
             percentages = np.round(
