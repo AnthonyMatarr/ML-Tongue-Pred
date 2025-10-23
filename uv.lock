@@ -1355,6 +1355,7 @@ dependencies = [
     { name = "keras" },
     { name = "lightgbm" },
     { name = "matplotlib" },
+    { name = "mlstatkit" },
     { name = "numpy" },
     { name = "openpyxl" },
     { name = "optuna" },
@@ -1378,6 +1379,7 @@ requires-dist = [
     { name = "keras", specifier = ">=3.11.3" },
     { name = "lightgbm", specifier = ">=4.6.0" },
     { name = "matplotlib", specifier = ">=3.10.7" },
+    { name = "mlstatkit", git = "https://github.com/AnthonyMatarr/MLstatkit.git" },
     { name = "numpy", specifier = ">=2.3.3" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "optuna", specifier = ">=4.5.0" },
@@ -1391,6 +1393,17 @@ requires-dist = [
     { name = "statkit", specifier = ">=1.0.3" },
     { name = "statsmodels", specifier = ">=0.14.5" },
     { name = "torch", specifier = ">=2.8.0" },
+]
+
+[[package]]
+name = "mlstatkit"
+version = "0.1.91"
+source = { git = "https://github.com/AnthonyMatarr/MLstatkit.git#5b24e19f2cc16af1a956adae6130d3ffdcc41ace" }
+dependencies = [
+    { name = "numpy" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tqdm" },
 ]
 
 [[package]]

@@ -11,6 +11,7 @@ dependencies = [
     "keras>=3.11.3",
     "lightgbm>=4.6.0",
     "matplotlib>=3.10.7",
+    "mlstatkit",
     "numpy>=2.3.3",
     "openpyxl>=3.1.5",
     "optuna>=4.5.0",
@@ -25,3 +26,6 @@ dependencies = [
     "statsmodels>=0.14.5",
     "torch>=2.8.0",
 ]
+
+[tool.uv.sources]
+mlstatkit = { git = "https://github.com/AnthonyMatarr/MLstatkit.git" }
