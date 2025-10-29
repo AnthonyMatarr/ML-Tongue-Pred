@@ -59,6 +59,18 @@ git fsck --full
 ```
 uv sync --locked
 ```
+## Troubleshooting
+
+### macOS: LightGBM Import Error (libomp.dylib)
+If you encounter an error when importing LightGBM on macOS:
+```
+OSError: Library not loaded: @rpath/libomp.dylib
+```
+**Solution**: Install the OpenMP library using Homebrew:
+```
+brew install libomp
+```
+Then restart your Python kernel/notebook. This issue may occur after macOS or Homebrew updates, even if LightGBM previously worked on your system.
 
 ## Usage
 1. Adjust BASE_PATH in src/config.py to the absolute path to the root directory of ML-Tongue-Pred, for example:
