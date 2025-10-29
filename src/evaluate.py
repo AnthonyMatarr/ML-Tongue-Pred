@@ -168,9 +168,9 @@ def plot_calibration(y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED):
         prob_pred,
         prob_true,
         marker=marker,
-        label=f"{data_type} Brier = {brier:.3f} ({br_low:.3f}-{br_high:.3f}) & ICI = {ici:.3f} ({ici_low:.3f}-{ici_high:.3f})",
+        label=f"{data_type} Brier = {brier_str} & ICI = {ici_str}",
     )
-    return [brier_str, ici_str]
+    return
 
 
 ########################################## Main function ##########################################
@@ -425,16 +425,16 @@ def evaluate_models(
             [0, 1], [0, 1], linestyle="--", color="gray", label="Perfect Calibration"
         )
         ##Train
-        cal_info_trn = plot_calibration(y_train, y_proba_train, "train")
+        plot_calibration(y_train, y_proba_train, "train")
         # CLASS_REPORT_DICT["train"][model_name]["Brier"] = cal_info_trn[0]
         # CLASS_REPORT_DICT["train"][model_name]["ICI"] = cal_info_trn[1]
         ##Val
-        cal_info_val = plot_calibration(y_val, y_proba_val, "val")
+        plot_calibration(y_val, y_proba_val, "val")
         # CLASS_REPORT_DICT["val"][model_name]["Brier"] = cal_info_val[0]
         # CLASS_REPORT_DICT["val"][model_name]["ICI"] = cal_info_val[1]
         ##Test
         if X_test is not None:
-            cal_info_tst = plot_calibration(y_test, y_proba_test, "test")
+            plot_calibration(y_test, y_proba_test, "test")
             # CLASS_REPORT_DICT["test"][model_name]["Brier"] = cal_info_tst[0]
             # CLASS_REPORT_DICT["test"][model_name]["ICI"] = cal_info_tst[1]
 

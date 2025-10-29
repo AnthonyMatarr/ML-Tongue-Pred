@@ -442,7 +442,7 @@ def tune_model_mult_outcomes(
     result_dict = {}
     for outcome_name, outcome_data in outcome_dict.items():
         with open(log_file_path, "a") as f:
-            f.write("Working on outcome: {outcome_name}...\n")
+            f.write(f"Working on outcome: {outcome_name}...\n")
         X_train = outcome_data["X_train"]
         y_train = outcome_data["y_train"].values.ravel()
 
