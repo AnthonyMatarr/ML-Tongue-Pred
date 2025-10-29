@@ -425,18 +425,12 @@ def evaluate_models(
             [0, 1], [0, 1], linestyle="--", color="gray", label="Perfect Calibration"
         )
         ##Train
-        plot_calibration(y_train, y_proba_train, "train")
-        # CLASS_REPORT_DICT["train"][model_name]["Brier"] = cal_info_trn[0]
-        # CLASS_REPORT_DICT["train"][model_name]["ICI"] = cal_info_trn[1]
+        plot_calibration(y_train, y_proba_train, "train", n_bootstraps=n_bootstraps)
         ##Val
-        plot_calibration(y_val, y_proba_val, "val")
-        # CLASS_REPORT_DICT["val"][model_name]["Brier"] = cal_info_val[0]
-        # CLASS_REPORT_DICT["val"][model_name]["ICI"] = cal_info_val[1]
+        plot_calibration(y_val, y_proba_val, "val", n_bootstraps=n_bootstraps)
         ##Test
         if X_test is not None:
-            plot_calibration(y_test, y_proba_test, "test")
-            # CLASS_REPORT_DICT["test"][model_name]["Brier"] = cal_info_tst[0]
-            # CLASS_REPORT_DICT["test"][model_name]["ICI"] = cal_info_tst[1]
+            plot_calibration(y_test, y_proba_test, "test", n_bootstraps=n_bootstraps)
 
         ### plot all ###
         plt.xlabel("Predicted Probability")
