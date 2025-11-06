@@ -13,6 +13,19 @@ from statsmodels.tools.sm_exceptions import ConvergenceWarning
 def add_dummy_rows(*_, df, col, result_list, header_ORs, header_p):
     """
     Creates dummy rows to be added to summary/analysis df in the event that a given feature should not be populated with values
+
+    Parameters
+    ---------
+    df: pandas DataFrame
+        Tabular dataframe containing both predictor and outcome variables
+    col: string
+        Name of the column for which dummy rows will be generated
+    result_list: list[dict{}]
+        List of dictionaries. Each dict pertains to a single row once converted into a dataframe
+    header_ORs: string
+        Header for Odds Ratios column in final summary/analysis dataframe
+    header_p: string
+        Header for p-value column in final summary/analysis dataframe
     """
     entries = sorted(df[col].unique())
     for entry in entries:
@@ -28,6 +41,9 @@ def add_dummy_rows(*_, df, col, result_list, header_ORs, header_p):
 
 
 def format_p_val(p_val):
+    """
+    Re-formats p-values if <0.0001, and rounds otherwise. Converts to string
+    """
     if p_val < 0.0001:
         return "<0.0001"
     elif p_val <= 0.05:
@@ -103,7 +119,6 @@ def get_analysis_df(*_, df, outcome_data, outcome_name, outcome_sub_cols, fish_d
     result_list = []
     full_df = pd.concat([df, outcome_data], axis=1)
     for col in df.columns:  # Loop through all columns
-        # result_list.append({"Feature": f"{col.upper()}", header_ORs: "", header_p: ""})
         if exclude_col(col, outcome_name, outcome_sub_cols) or col == outcome_name:
             result_list.append(
                 {"Feature": f"{col.upper()}", header_ORs: "---", header_p: "---"}
@@ -142,16 +157,6 @@ def get_analysis_df(*_, df, outcome_data, outcome_name, outcome_sub_cols, fish_d
                 header_ORs=header_ORs,
                 header_p=header_p,
             )
-            # entries = sorted(full_df[col].unique())
-            # for entry in entries:
-            #     entry_name = f"{col.upper()} {entry}"
-            #     result_list.append(
-            #         {
-            #             "Feature": entry_name,
-            #             header_ORs: "",
-            #             header_p: "p_value",
-            #         }
-            #     )
         elif col in numerical_cols:
             ### Mann-Whitney U test for p-vals ###
             group1 = full_df[full_df[outcome_name] == 0][col]
@@ -200,13 +205,11 @@ def get_analysis_df(*_, df, outcome_data, outcome_name, outcome_sub_cols, fish_d
             temp_df = pd.get_dummies(
                 temp_df, columns=[col], drop_first=False, dtype=int
             )
-            drop_col = ""
             # If nominal, drop highest freq entry and make that reference
             if col in nominal_cols:
                 val_counts = full_df[col].value_counts()
                 max_freq_idx = val_counts.idxmax()  # Entry with the highest frequency
                 drop_col = f"{col}_{max_freq_idx}"
-                temp_df.drop(drop_col, axis=1, inplace=True)
             # If ordinal, drop the entry with the lowest value and make that reference
             else:
                 # Ensure no perfect sep in reference instance
@@ -216,77 +219,41 @@ def get_analysis_df(*_, df, outcome_data, outcome_name, outcome_sub_cols, fish_d
                     drop_col = f"{col}_{entries[i]}"
                     if entries[i] not in zero_entries:
                         break
-                temp_df.drop(drop_col, axis=1, inplace=True)
-            # Run model
+            temp_df.drop(drop_col, axis=1, inplace=True)
             X = sm.add_constant(temp_df)
-            bad_entry_list = []
+            ## Identify problematic entries
+            ct = pd.crosstab(df[col], y)
+            zero_entries = ct[ct[1] == 0].index.tolist()
+            bad_entry_list = [
+                f"{col}_{entry}"
+                for entry in zero_entries
+                if f"{col}_{entry}" != drop_col and f"{col}_{entry}" in X.columns  # type: ignore
+            ]
+            if bad_entry_list:
+                X = X.drop(bad_entry_list, axis=1)  # type: ignore
+            model = None
+            or_estimates = None
+            conf_ints = None
+            p_values = None
             try:  # Try to run Logit
-
                 with warnings.catch_warnings():
-                    warnings.filterwarnings("error", category=ConvergenceWarning)
+                    warnings.filterwarnings("error")
                     model = sm.Logit(y, X).fit(disp=0)
                     or_estimates = np.exp(model.params)
                     conf_ints = model.conf_int()
                     p_values = model.pvalues
             except (
                 ConvergenceWarning,
+                RuntimeWarning,
                 ValueError,
                 KeyError,
                 OverflowError,
-            ):  # Except any issues with logit
-                ##Loop through instances (entries) and determine unstable ones
-                ct = pd.crosstab(df[col], y)
-                zero_entries = ct[ct[1] == 0].index.tolist()
-                bad_entry_list = [
-                    f"{col}_{zero_entry}"
-                    for zero_entry in zero_entries
-                    if zero_entry != drop_col
-                ]
-                og_n_cols = X.shape[1]
-                X = X.drop(bad_entry_list, axis=1)  # type:ignore
-                assert X.shape[1] != og_n_cols
-                # for entry in entries:
-                #     entry_name = f'{col}_{entry}'
-                #     if entry_name == drop_col:
-                #         continue
-                # if is_unstable(y, X_sub, col, entry_name):
-                #     bad_entry_list.append(entry_name)
-                #     X = X.drop(entry_name, axis = 1).copy() # type: ignore
-
-                # Re-try with unstable removed
-                try:  # Try to run Logit
-                    with warnings.catch_warnings():
-                        warnings.filterwarnings("error", category=ConvergenceWarning)
-                        model = sm.Logit(y, X).fit(disp=0)
-                        or_estimates = np.exp(model.params)
-                        conf_ints = model.conf_int()
-                        p_values = model.pvalues
-                except (
-                    ConvergenceWarning,
-                    ValueError,
-                    KeyError,
-                    OverflowError,
-                ):  # Except any issues with logit
-                    print("HOW IS THIS HAPPENING AGAIN")
-                    return pd.DataFrame()
-
-                # model = sm.Logit(y, X).fit(disp=0)
-                # or_estimates = np.exp(model.params)
-                # conf_ints = model.conf_int()
-                # p_values = model.pvalues
-            for entry in entries:  # Loop through each possible entry of the feature
-                ordinal_idx = 0
-                entry_name = f"{col}_{entry}"  # Reformat to allow for indexing ex) 1.0 --> SITE_1.0
-                if entry_name == drop_col:
-                    result_list.append(
-                        {
-                            "Feature": f"{col.upper()} {entry}",
-                            header_ORs: "Reference",
-                            header_p: "Reference",
-                        }
-                    )
-
-                elif entry_name in bad_entry_list:
+            ) as e:  # Except any issues with logit
+                # Log the specific issue
+                print(f"Failed to fit model for {col}: {type(e).__name__}: {e}")
+                # Mark all entries as unstable
+                for entry in entries:
+                    entry_name = f"{col}_{entry}"
                     result_list.append(
                         {
                             "Feature": f"{col.upper()} {entry}",
@@ -294,28 +261,43 @@ def get_analysis_df(*_, df, outcome_data, outcome_name, outcome_sub_cols, fish_d
                             header_p: "UNSTABLE",
                         }
                     )
-                # For BOTH: If not designated reference, get stat vals
-                else:
-                    p_val_specific = format_p_val(p_values[entry_name])
-                    or_estimate = or_estimates.loc[entry_name]
-                    ci_lower = np.exp(conf_ints.loc[entry_name, 0])
-                    try:
-                        with warnings.catch_warnings():
-                            warnings.filterwarnings("error", category=RuntimeWarning)
-                            ci_upper = np.exp(conf_ints.loc[entry_name, 1])
-                    except RuntimeWarning:
-                        print(entry_name)
-                    odds_conf = f"{or_estimate:.2f} ({ci_lower:.2f}, {ci_upper:.2f})"
+                continue  # Skip to next column
+            if model is not None:
+                for entry in entries:  # Loop through each possible entry of the feature
+                    entry_name = f"{col}_{entry}"  # Reformat to allow for indexing ex) 1.0 --> SITE_1.0
+                    if entry_name == drop_col:
+                        result_list.append(
+                            {
+                                "Feature": f"{col.upper()} {entry}",
+                                header_ORs: "Reference",
+                                header_p: "Reference",
+                            }
+                        )
 
-                    # odds_conf = "Unstable (rare/separation)"
-                    # p_val_specific = "---"
-                    result_list.append(
-                        {
-                            "Feature": f"{col.upper()} {entry}",
-                            header_ORs: odds_conf,
-                            header_p: p_val_specific,
-                        }
-                    )
+                    elif entry_name in bad_entry_list:
+                        result_list.append(
+                            {
+                                "Feature": f"{col.upper()} {entry}",
+                                header_ORs: "UNSTABLE",
+                                header_p: "UNSTABLE",
+                            }
+                        )
+                    # For BOTH: If not designated reference, get stat vals
+                    else:
+                        p_val_specific = format_p_val(p_values[entry_name])
+                        or_estimate = or_estimates.loc[entry_name]
+                        ci_lower = np.exp(conf_ints.loc[entry_name, 0])
+                        ci_upper = np.exp(conf_ints.loc[entry_name, 1])
+                        odds_conf = (
+                            f"{or_estimate:.2f} ({ci_lower:.2f}, {ci_upper:.2f})"
+                        )
+                        result_list.append(
+                            {
+                                "Feature": f"{col.upper()} {entry}",
+                                header_ORs: odds_conf,
+                                header_p: p_val_specific,
+                            }
+                        )
 
     results_df = pd.DataFrame(result_list)
     return results_df.set_index("Feature")
@@ -323,7 +305,8 @@ def get_analysis_df(*_, df, outcome_data, outcome_name, outcome_sub_cols, fish_d
 
 def exclude_col(col, outcome, outcome_sub_cols):
     """
-    Returns True if given column should not have any data for given outcome, False otherwise (it should have data)
+    Returns True if given column should not have any data for given outcome, False otherwise (it should have data).
+    A column should not have data for a given outcome if it contains information used to generate that outcome.
     """
     if col in outcome_sub_cols[outcome]:
         return True
@@ -349,7 +332,7 @@ def generate_summary_column(
     feature_dict,
 ):
     """
-        Generates a single column for the summary table. Usually one of [all, only_positive_instances, only_neg_instances]
+    Generates a single column for the summary table. Usually one of [all, only_positive_instances, only_neg_instances]
 
     Parameters
     ----------
