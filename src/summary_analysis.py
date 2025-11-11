@@ -507,12 +507,13 @@ def generate_summary_table(
         feature_dict,
     )
 
-    # Drop feature column for readability when combined
-    non_outcome_col.drop("Feature", axis=1, inplace=True)
-    outcome_col.drop("Feature", axis=1, inplace=True)
+    ## Combine by feature column
+    total_col = total_col.set_index("Feature")
 
-    # # Combine columns
-    combined_df = pd.concat([total_col, non_outcome_col], axis=1)
-    combined_df = pd.concat([combined_df, outcome_col], axis=1)
-    combined_df.set_index("Feature", inplace=True)
+    non_outcome_col = non_outcome_col.set_index("Feature")
+
+    outcome_col = outcome_col.set_index("Feature")
+
+    combined_df = pd.concat([total_col, non_outcome_col, outcome_col], axis=1)
+
     return combined_df
