@@ -31,11 +31,11 @@ OUTCOMES = {
 @st.cache_resource
 def load_model_pipeline(outcome_name):
     """Load model and preprocessor for a specific outcome."""
-    model_path = BASE_PATH / "app" / "models" / f"{outcome_name}_stack.joblib"
-    # force CPU during load
-    with torch.device("cpu"):
-        # Use stack model
-        model = joblib.load(model_path)
+    model_path = BASE_PATH / "app" / "models" / f"{outcome_name}_lr.joblib"
+    # # force CPU during load
+    # with torch.device("cpu"):
+    #     # Use stack model
+    # model = joblib.load(model_path)
     model = joblib.load(model_path)
     preprocessor = joblib.load(
         BASE_PATH / "preprocessors" / f"preprocessor_outcome_{outcome_name}.joblib"
@@ -104,7 +104,6 @@ def main():
                 "Unknown/Other",  # --> Unknown_Other
             ],
         )
-
     with col2:
         st.subheader("Pre-Op Chatacteristics")
         mal_neoplasm = st.selectbox(
@@ -175,7 +174,6 @@ def main():
         optime = st.number_input(
             "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
         )
-
     with col4:
         st.subheader("Head and Neck Procedures")
         part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"])
@@ -332,7 +330,7 @@ def main():
                         )  # ← Extract and convert
 
                     # Display results
-                    col_a, col_b = st.columns(2)
+                    col_a, col_b, col_c, col_d = st.columns(4)
 
                     with col_a:
                         st.metric(
@@ -344,7 +342,13 @@ def main():
                     with col_b:
                         risk, color = util.get_risk_category(prob_positive, folder_name)
                         st.metric(label="Risk Category", value=f"{color} {risk}")
+                    with col_c:
+                        st.write(
+                            "bin thresholds here"
+                        )  # or st.markdown() if you want formatting
 
+                    with col_d:
+                        st.write("percentile of all patients here")
                     # Progress bar visualization
                     st.progress(float(prob_positive))
 
