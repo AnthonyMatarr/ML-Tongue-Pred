@@ -6,3 +6,4 @@ logs/
 results/
 models/
 cal_models/
+.vscode
