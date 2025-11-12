@@ -1,15 +1,21 @@
+## CPU not MPS
+import os
+
+os.environ["PYTORCH_MPS_ENABLE"] = "0"
 ## Append path to root
 import sys
 from pathlib import Path
 
 BASE_PATH = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE_PATH))
+
 ## Other imports
 import streamlit as st
 import joblib
 import pandas as pd
 import numpy as np
 import utils as util
+import torch
 from src.preprocess import remove_prefix
 
 # Configuration
@@ -26,7 +32,10 @@ OUTCOMES = {
 def load_model_pipeline(outcome_name):
     """Load model and preprocessor for a specific outcome."""
     model_path = BASE_PATH / "app" / "models" / f"{outcome_name}_stack.joblib"
-    ##Use stack model
+    # force CPU during load
+    with torch.device("cpu"):
+        # Use stack model
+        model = joblib.load(model_path)
     model = joblib.load(model_path)
     preprocessor = joblib.load(
         BASE_PATH / "preprocessors" / f"preprocessor_outcome_{outcome_name}.joblib"
