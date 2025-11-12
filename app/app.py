@@ -1,12 +1,13 @@
+## Append path to root
 import sys
 from pathlib import Path
 
 BASE_PATH = Path(__file__).parent.parent
 sys.path.insert(0, str(BASE_PATH))
+## Other imports
 import streamlit as st
 import joblib
 import pandas as pd
-
 import utils as util
 
 # Configuration
@@ -22,9 +23,9 @@ OUTCOMES = {
 @st.cache_resource
 def load_model_pipeline(outcome_name):
     """Load model and preprocessor for a specific outcome."""
-    base_path = BASE_PATH / "cal_models" / outcome_name
+    model_path = BASE_PATH / "app" / "models" / f"{outcome_name}_stack.joblib"
     ##Use stack model
-    model = joblib.load(base_path / "stack.joblib")
+    model = joblib.load(model_path)
     preprocessor = joblib.load(
         BASE_PATH / "preprocessors" / f"preprocessor_outcome_{outcome_name}.joblib"
     )
