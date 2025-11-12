@@ -8,7 +8,9 @@ sys.path.insert(0, str(BASE_PATH))
 import streamlit as st
 import joblib
 import pandas as pd
+import numpy as np
 import utils as util
+from src.preprocess import remove_prefix
 
 # Configuration
 OUTCOMES = {
@@ -298,8 +300,16 @@ def main():
                     # Load model and preprocessor
                     model, preprocessor = load_model_pipeline(folder_name)
 
-                    # Preprocess and predict
-                    processed_data = preprocessor.transform(input_data)
+                    ## Preprocess
+                    feature_names = preprocessor.get_feature_names_out()
+                    data_transformed = np.array(preprocessor.transform(input_data))
+                    processed_data = pd.DataFrame(
+                        data_transformed, columns=feature_names
+                    )
+                    processed_data = remove_prefix(processed_data)
+                    for col in processed_data.columns:
+                        processed_data[col] = pd.to_numeric(processed_data[col])
+                    ## predict
                     probabilities = model.predict_proba(processed_data)[:, 1]
 
                     # Extract scalar probability
