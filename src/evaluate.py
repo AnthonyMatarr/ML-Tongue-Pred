@@ -1,4 +1,4 @@
-from src.config import SEED
+from src.config import SEED, BASE_PATH
 
 from operator import xor
 import warnings
@@ -7,12 +7,92 @@ from pathlib import Path
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn import calibration
 from sklearn.metrics import roc_curve, confusion_matrix
 from MLstatkit import Bootstrapping
+import pandas as pd
 
 
 ########################################## Helper Functions ##########################################
+def get_percentile_range_thresholds(y_proba, n_bins=4, lower=1, upper=99):
+    """
+    Returns thresholds using the [lower, upper] percentiles of y_proba, dividing the interval into (as close as possible) equal-width bins.
+    """
+    # Compute robust min/max using percentiles
+    lo = np.percentile(y_proba, lower)
+    hi = np.percentile(y_proba, upper)
+    edges = np.linspace(lo, hi, n_bins + 1)
+    # Internal edges only (drop low/high)
+    thresholds = edges[1:-1]
+    return thresholds  # 1D array, length n_bins-1
+
+
+def get_logspace_thresholds(y_proba, n_bins=4, lower=1e-5, upper=None):
+    """
+    Returns thresholds spaced evenly on a log scale within [lower, upper], gracefully handling zero predictions.
+    """
+    if upper is None:
+        upper = np.percentile(y_proba, 99)  # or use max(y_proba)
+    # Avoid log(0) by setting very small lower bound
+    lo = max(lower, np.min(y_proba[y_proba > 0]))
+    hi = upper
+    # Make log-spaced edges
+    edges = np.logspace(np.log10(lo), np.log10(hi), n_bins + 1)
+    thresholds = edges[1:-1]
+    return thresholds
+
+
+def plot_risk_bar_dot(y_true, y_proba, thresholds, ax=None):
+    """
+    Allocates predictions to bins, calculates outcome rate & mean prediction for each bin,
+    and makes a bar graph with risk curve overlay.
+    """
+    thresholds = np.asarray(thresholds, dtype=float).flatten()
+    n_bins = len(thresholds) + 1
+    bin_indices = np.digitize(y_proba, thresholds, right=False)  # 0,1,...,n_bins-1
+
+    event_rates = []
+    mean_preds = []
+    counts = []
+
+    for b in range(n_bins):
+        mask = bin_indices == b
+        n = mask.sum()
+        counts.append(n)
+        if n == 0:
+            event_rates.append(np.nan)
+            mean_preds.append(np.nan)
+        else:
+            event_rates.append(y_true[mask].mean())
+            mean_preds.append(y_proba[mask].mean())
+
+    # Label bins as "Bin 0", "Bin 1", ...
+    bins_labels = [f"Bin {i}" for i in range(n_bins)]
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar(range(n_bins), event_rates, color="C0", alpha=0.7, label="Event Rate")
+    ax.plot(range(n_bins), mean_preds, "o-", color="C1", label="Avg. Predicted Risk")
+    ax.set_xticks(range(n_bins))
+    ax.set_xticklabels(bins_labels, rotation=0)
+    ax.set_ylabel("Fraction With Outcome / Mean Prediction")
+    ax.set_xlabel("Risk Bin")
+    ax.legend()
+
+    # n=XXXX at bottom of bar
+    for i, n in enumerate(counts):
+        ax.text(
+            i,
+            0.0,
+            f"n={n}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            color="k",
+        )
+    plt.tight_layout()
+    return ax
+
+
 def get_cm(
     model_name,
     outcome_name,
@@ -139,40 +219,6 @@ def plot_ROC(y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED):
     return auc_string, optimal_threshold
 
 
-def plot_calibration(y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED):
-    """
-    Plot calibration curve and get calibration values
-    """
-    brier, br_low, br_high = Bootstrapping(
-        y_true,
-        y_proba,
-        metric_str="brier",
-        n_bootstraps=n_bootstraps,
-        random_state=seed,
-    )
-    prob_true, prob_pred = calibration.calibration_curve(
-        y_true, y_proba, n_bins=3, strategy="uniform"
-    )
-    ici, ici_low, ici_high = Bootstrapping(
-        y_true, y_proba, metric_str="ici", n_bootstraps=n_bootstraps, random_state=seed
-    )
-    if data_type == "train":
-        marker = "s"
-    elif data_type == "val":
-        marker = "*"
-    else:  # test
-        marker = "o"
-    brier_str = f"{brier:.3f} ({br_low:.3f}, {br_high:.3f})"
-    ici_str = f"{ici:.3f} ({ici_low:.3f}, {ici_high:.3f})"
-    plt.plot(
-        prob_pred,
-        prob_true,
-        marker=marker,
-        label=f"{data_type} Brier = {brier_str} & ICI = {ici_str}",
-    )
-    return
-
-
 ########################################## Main function ##########################################
 def evaluate_models(
     *_,
@@ -184,6 +230,7 @@ def evaluate_models(
     y_val,
     X_test=None,
     y_test=None,
+    n_bins=4,
     results_path=None,
     threshold_str="val",
     n_bootstraps=5000,
@@ -336,6 +383,60 @@ def evaluate_models(
         else:
             plt.close()
         #################################################################################################################
+        ############################################## Risk Bins ########################################################
+        #################################################################################################################
+        # ================== GET THRESHOLDS ===================
+        train_val_probs = np.concatenate([y_proba_train, y_proba_val])
+        # thresholds = get_percentile_range_thresholds(
+        #    train_val_probs, n_bins=n_bins
+        # )  # linear-scale
+        thresholds = get_logspace_thresholds(
+            train_val_probs, n_bins=n_bins
+        )  # log-scale
+        if results_path:
+            bins_path = BASE_PATH / "app" / "bin_thresholds" / f"{outcome_name}.npz"
+            if bins_path.exists():
+                print(f"Over-writing bin data at path {bins_path}")
+                bins_path.unlink()
+            bins_path.parent.mkdir(exist_ok=True, parents=True)
+            np.savez(
+                bins_path,
+                thresholds=thresholds,
+            )
+        # ================== PLOT RISK BARS ===================
+        if X_test is not None:
+            ax = plot_risk_bar_dot(y_test, y_proba_test, thresholds)
+            plt.title(f"{model_name} Test Risk Stratification: {outcome_name}")
+            if results_path:
+                bin_plot_path = (
+                    results_path
+                    / "figures"
+                    / "risk_bins"
+                    / outcome_name
+                    / f"{model_name}.pdf"
+                )
+                if bin_plot_path.exists():
+                    print(f"Over-writing bin plot at path {bin_plot_path}")
+                bin_plot_path.parent.mkdir(exist_ok=True, parents=True)
+                plt.savefig(bin_plot_path, bbox_inches="tight")
+            if show_cal:
+                plt.show()
+            else:
+                plt.close()
+        #################################################################################################################
+        ########################################### All predictions #####################################################
+        #################################################################################################################
+        # file path
+        all_pred_path = BASE_PATH / "app" / "all_preds" / f"{outcome_name}.parquet"
+        if all_pred_path.exists():
+            print(f"Over-writing all preds at path {all_pred_path}")
+        all_pred_path.parent.mkdir(exist_ok=True, parents=True)
+        # get preds
+        all_probs = np.concatenate([y_proba_train, y_proba_val, y_proba_test])
+        all_labels = np.concatenate([y_train, y_val, y_test])  # type: ignore
+        all_predictions = pd.DataFrame({"prob": all_probs, "label": all_labels})
+        all_predictions.to_parquet(all_pred_path)
+        #################################################################################################################
         ########################################### Get discrimination metrics ##########################################
         #################################################################################################################
         metrics_strs = ["f1", "accuracy", "recall", "precision", "brier", "ici"]
@@ -417,43 +518,4 @@ def evaluate_models(
                         random_state=SEED,
                     )
                 )
-        #################################################################################################################
-        ######################################### Calibration curves ##########################################
-        #################################################################################################################
-        plt.figure(figsize=(12, 8))
-        plt.plot(
-            [0, 1], [0, 1], linestyle="--", color="gray", label="Perfect Calibration"
-        )
-        ##Train
-        plot_calibration(y_train, y_proba_train, "train", n_bootstraps=n_bootstraps)
-        ##Val
-        plot_calibration(y_val, y_proba_val, "val", n_bootstraps=n_bootstraps)
-        ##Test
-        if X_test is not None:
-            plot_calibration(y_test, y_proba_test, "test", n_bootstraps=n_bootstraps)
-
-        ### plot all ###
-        plt.xlabel("Predicted Probability")
-        plt.ylabel("Fraction of Positives")
-        plt.title(f"{model_name}")
-        plt.legend(loc="upper left", prop={"size": 15, "weight": 550})
-        plt.grid(True)
-        if results_path:
-            cal_path = (
-                Path(results_path)
-                / "figures"
-                / "calibration"
-                / "curves"
-                / outcome_name
-                / f"{model_name}_calcurve.pdf"
-            )
-            if cal_path.exists():
-                warnings.warn(f"Over-writing cal-curve at path {cal_path}")
-                cal_path.unlink()
-            cal_path.parent.mkdir(exist_ok=True, parents=True)
-            plt.savefig(cal_path, bbox_inches="tight")
-        if show_cal:
-            plt.show()
-        else:
-            plt.close()
     return CLASS_REPORT_DICT
