@@ -1,7 +1,3 @@
-## CPU not MPS
-import os
-
-os.environ["PYTORCH_MPS_ENABLE"] = "0"
 ## Append path to root
 import sys
 from pathlib import Path
@@ -15,7 +11,6 @@ import joblib
 import pandas as pd
 import numpy as np
 import utils as util
-import torch
 from src.preprocess import remove_prefix
 
 # Configuration
@@ -55,8 +50,10 @@ def main():
         "Predict 30-day complications after head and neck surgery for tongue neoplasm"
     )
     st.info(
-        "Default values represent median values for numerical variables, but are meaningless for categorical variables. "
-        "Adjust all fields to match your patient."
+        "Default values for categorical variables are no for yes/no options--unknown if available--and the most prominent instance otherwise. Numerical defaults represent median values. "
+    )
+    st.info(
+        "Adjust all fields to match your patient. To reset to default values, refresh the page. "
     )
 
     # Sidebar: Outcome selection
@@ -70,7 +67,7 @@ def main():
         st.warning("Please select at least one outcome to predict")
         return
     ## Reset button
-    if st.sidebar.button("🔄 Clear Form"):
+    if st.sidebar.button("🔄 Clear Prediction", key="reset_btn"):
         st.rerun()
 
     # Main input section
@@ -80,12 +77,12 @@ def main():
 
     with col1:
         st.subheader("Demographics")
-        sex = st.selectbox("Sex", ["Male", "Female"])  # --> 1/0
+        sex = st.selectbox("Sex", ["Male", "Female"], index=0)  # --> 1/0
         weight = st.number_input(
-            "Weight (lbs)", min_value=0.0, max_value=None, value=66.0
+            "Weight (lbs)", min_value=0.0, max_value=None, value=170.0
         )
         height = st.number_input(
-            "Height (in)", min_value=0.0, max_value=None, value=170.0
+            "Height (in)", min_value=0.0, max_value=None, value=66.0
         )
 
         # bmi = st.number_input(
@@ -93,7 +90,7 @@ def main():
         # )
         age = st.number_input("Age", min_value=1, max_value=90, value=63)
         hispanic = st.selectbox(
-            "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"]  # --> 1/0
+            "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"], index=1  # --> 1/0
         )  # fix to be 1/0
         race = st.selectbox(
             "Race",
@@ -103,6 +100,7 @@ def main():
                 "Asian",
                 "Unknown/Other",  # --> Unknown_Other
             ],
+            index=0,
         )
     with col2:
         st.subheader("Pre-Op Chatacteristics")
@@ -116,29 +114,31 @@ def main():
                 "Surface",  # --> Malignant neoplasm of surface of tongue
                 "Unspecified",  # --> Malignant neoplasm of surface of tongue
             ],
+            index=5,
         )
-        diabetes = st.selectbox("Diabetes", ["Yes", "No"])
-        smoke = st.selectbox("Current Smoker", ["Yes", "No"])
+        diabetes = st.selectbox("Diabetes", ["Yes", "No"], index=1)
+        smoke = st.selectbox("Current Smoker", ["Yes", "No"], index=1)
         dyspnea = st.selectbox(
-            "Dyspnea", ["Yes", "No", "Unknown/Other"]
+            "Dyspnea", ["Yes", "No", "Unknown/Other"], index=2
         )  # Unknown_Other
-        vent = st.selectbox("Ventilator >48 Hours", ["Yes", "No"])
-        hxcopd = st.selectbox("COPD", ["Yes", "No"])
+        vent = st.selectbox("Ventilator >48 Hours", ["Yes", "No"], index=1)
+        hxcopd = st.selectbox("COPD", ["Yes", "No"], index=1)
         ascites = st.selectbox("Ascites", ["Yes", "No"])
-        hxchf = st.selectbox("Congestive Heart Failure", ["Yes", "No"])
-        hypermed = st.selectbox("Hypertension", ["Yes", "No"])
-        renal_failure = st.selectbox("Acute Renal Failure", ["Yes", "No"])
-        dialysis = st.selectbox("Dialysis", ["Yes", "No"])
-        discancr = st.selectbox("Disseminated Cancer", ["Yes", "No"])
-        wndinf = st.selectbox("Wound Infection", ["Yes", "No", "Unknown"])
-        steroid = st.selectbox("Corticosteroid Use", ["Yes", "No"])
+        hxchf = st.selectbox("Congestive Heart Failure", ["Yes", "No"], index=1)
+        hypermed = st.selectbox("Hypertension", ["Yes", "No"], index=1)
+        renal_failure = st.selectbox("Acute Renal Failure", ["Yes", "No"], index=1)
+        dialysis = st.selectbox("Dialysis", ["Yes", "No"], index=1)
+        discancr = st.selectbox("Disseminated Cancer", ["Yes", "No"], index=1)
+        wndinf = st.selectbox("Wound Infection", ["Yes", "No", "Unknown"], index=2)
+        steroid = st.selectbox("Corticosteroid Use", ["Yes", "No"], index=1)
         wtloss = st.selectbox(
             f"Weight Loss (>10% body weight loss in last 6 months)",
-            ["Yes", "No", "Unknown/Other"],  # --> Unknown_Other
+            ["Yes", "No", "Unknown/Other"],
+            index=2,  # --> Unknown_Other
         )
-        bleed = st.selectbox("Bleeding Disorder", ["Yes", "No"])
-        transfus = st.selectbox("Blood Transfusion", ["Yes", "No"])
-        prsepis = st.selectbox("Sepsis", ["Yes", "No"])
+        bleed = st.selectbox("Bleeding Disorder", ["Yes", "No"], index=1)
+        transfus = st.selectbox("Blood Transfusion", ["Yes", "No"], index=1)
+        prsepis = st.selectbox("Sepsis", ["Yes", "No"], index=1)
         pralbumin = st.number_input(
             "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
         )
@@ -149,11 +149,11 @@ def main():
             value=7.0,
         )
         func_stat = st.selectbox(
-            "Functional Status", ["Independent", "Dependent"]
+            "Functional Status", ["Independent", "Dependent"], index=0
         )  # --> 1/0
     with col3:
         st.subheader("Intra-Op Characteristics")
-        inout = st.selectbox("Setting", ["Inpatient", "Outpatient"])  # --> 1/0
+        inout = st.selectbox("Setting", ["Inpatient", "Outpatient"], index=0)  # --> 1/0
         elect_surg = st.selectbox(
             "Case Type",
             [
@@ -161,6 +161,7 @@ def main():
                 "Urgent/Emergent",  # --> Urgent_Emergent
                 "Unknown",  # --> Unknown
             ],
+            index=1,
         )
         asa_class = st.selectbox(
             "ASA Class",
@@ -170,45 +171,54 @@ def main():
                 "3-Severe Disturbance",  # --> 3-Severe Disturb
                 "4-Life Threatening Disturbance",  # --> 4-Life Threat
             ],
+            index=2,
         )
         optime = st.number_input(
             "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
         )
     with col4:
         st.subheader("Head and Neck Procedures")
-        part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"])
-        comp_ext_gloss = st.selectbox("Composite Extended Glossectomy", ["Yes", "No"])
-        total_gloss = st.selectbox("Total Glossectomy", ["Yes", "No"])
-        tongue_exc = st.selectbox("Excision of Tongue Lesions", ["Yes", "No"])
+        part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"], index=1)
+        comp_ext_gloss = st.selectbox(
+            "Composite Extended Glossectomy", ["Yes", "No"], index=1
+        )
+        total_gloss = st.selectbox("Total Glossectomy", ["Yes", "No"], index=1)
+        tongue_exc = st.selectbox("Excision of Tongue Lesions", ["Yes", "No"], index=1)
         oral_cav_recon = st.selectbox(
-            "Local/Regional Tissue Flaps for Oral Cavity Reconstruction", ["Yes", "No"]
+            "Local/Regional Tissue Flaps for Oral Cavity Reconstruction",
+            ["Yes", "No"],
+            index=1,
         )
-        free_tissue_transfer = st.selectbox("Free Tissue Transfer", ["Yes", "No"])
-        skin_auto = st.selectbox("Skin Autograft", ["Yes", "No"])
+        free_tissue_transfer = st.selectbox(
+            "Free Tissue Transfer", ["Yes", "No"], index=1
+        )
+        skin_auto = st.selectbox("Skin Autograft", ["Yes", "No"], index=1)
         neck_diss = st.selectbox(
-            "Neck Dissection and Lymphadenectomy Procedure", ["Yes", "No"]
+            "Neck Dissection and Lymphadenectomy Procedure", ["Yes", "No"], index=1
         )
-        alv_ridge = st.selectbox("Alveolar Ridge and Gingival Procedure", ["Yes", "No"])
+        alv_ridge = st.selectbox(
+            "Alveolar Ridge and Gingival Procedure", ["Yes", "No"], index=1
+        )
         mand_res = st.selectbox(
-            "Mandibular Resection and Reconstruction Procedure", ["Yes", "No"]
+            "Mandibular Resection and Reconstruction Procedure", ["Yes", "No"], index=1
         )
         peri_nerve = st.selectbox(
-            "Peripheral Nerve Repair and Neuroplasty", ["Yes", "No"]
+            "Peripheral Nerve Repair and Neuroplasty", ["Yes", "No"], index=1
         )
-        trach_proc = st.selectbox("Tracheostomy Procedure", ["Yes", "No"])
+        trach_proc = st.selectbox("Tracheostomy Procedure", ["Yes", "No"], index=1)
         gast_eso_proc = st.selectbox(
-            "Gastrostomy and Esophageal Access Procedure", ["Yes", "No"]
+            "Gastrostomy and Esophageal Access Procedure", ["Yes", "No"], index=1
         )
-        sub_gland = st.selectbox("Submandibular Gland Excision", ["Yes", "No"])
-        parotid = st.selectbox("Parotid Gland Excision", ["Yes", "No"])
+        sub_gland = st.selectbox("Submandibular Gland Excision", ["Yes", "No"], index=1)
+        parotid = st.selectbox("Parotid Gland Excision", ["Yes", "No"], index=1)
         laryngeal = st.selectbox(
-            "Laryngeal Resection and Reconstruction Procedure", ["Yes", "No"]
+            "Laryngeal Resection and Reconstruction Procedure", ["Yes", "No"], index=1
         )
         pharyngeal = st.selectbox(
-            "Pharyngeal Resection and Reconstruction Procedure", ["Yes", "No"]
+            "Pharyngeal Resection and Reconstruction Procedure", ["Yes", "No"], index=1
         )
         tonsil = st.selectbox(
-            "Tonsillectomy and Tonsillar Region Procedure", ["Yes", "No"]
+            "Tonsillectomy and Tonsillar Region Procedure", ["Yes", "No"], index=1
         )
 
     # Create input dataframe
@@ -297,7 +307,7 @@ def main():
     )
 
     # Predict button
-    if st.button("🔮 Predict Outcomes", type="primary"):
+    if st.button("Predict Outcomes", type="primary", key="pred_btn"):
         st.header("Prediction Results")
 
         # Process each selected outcome
@@ -343,12 +353,60 @@ def main():
                         risk, color = util.get_risk_category(prob_positive, folder_name)
                         st.metric(label="Risk Category", value=f"{color} {risk}")
                     with col_c:
-                        st.write(
-                            "bin thresholds here"
-                        )  # or st.markdown() if you want formatting
+                        try:
+                            bin_thresholds = util.load_bin_thresholds(folder_name)
+                            labels = ["Very Low", "Low", "Moderate", "High"]
+                            cutoffs = [0.0] + list(bin_thresholds) + [1.0]
+                            bin_idx = np.digitize([prob_positive], cutoffs[1:])[
+                                0
+                            ]  # returns bin index
+
+                            # Build output lines with bold for the active bin
+                            lines = []
+                            for i, lab in enumerate(labels):
+                                line = f"{lab}: {cutoffs[i]:.2%} – {cutoffs[i+1]:.2%}"
+                                if i == bin_idx:
+                                    # Bold the whole line
+                                    line = f"<b>{line}</b>"
+                                lines.append(line)
+                            # Join using <br> for newlines
+                            st.markdown("<br>".join(lines), unsafe_allow_html=True)
+                        except Exception as e:
+                            st.warning(f"Could not load thresholds: {str(e)}")
 
                     with col_d:
-                        st.write("percentile of all patients here")
+                        all_probs, all_labels = util.load_population_probs(folder_name)
+
+                        # Overall percentile
+                        overall_pctile = (all_probs < prob_positive).mean() * 100  # type: ignore
+
+                        # Percentile among patients WITHOUT the outcome (label==0)
+                        neg_pctile = (
+                            all_probs[all_labels == 0] < prob_positive
+                        ).mean() * 100
+
+                        # Percentile among patients WITH the outcome (label==1)
+                        pos_pctile = (
+                            all_probs[all_labels == 1] < prob_positive
+                        ).mean() * 100
+
+                        # Display
+                        st.markdown(
+                            f"Percentile among all qualified patients in NSQIP 2008-2022:<br>"
+                            f"<b>{overall_pctile:.1f}%</b>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(
+                            f"Percentile among patients who DID NOT have the outcome:<br>"
+                            f"<b>{neg_pctile:.1f}%</b>",
+                            unsafe_allow_html=True,
+                        )
+                        st.markdown(
+                            f"Percentile among patients who DID have the outcome:<br>"
+                            f"<b>{pos_pctile:.1f}%</b>",
+                            unsafe_allow_html=True,
+                        )
+
                     # Progress bar visualization
                     st.progress(float(prob_positive))
 

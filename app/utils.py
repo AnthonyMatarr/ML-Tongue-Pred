@@ -1,7 +1,24 @@
 from pathlib import Path
 import joblib
+import numpy as np
+import pandas as pd
 
 BASE_PATH = Path(__file__).parent.parent
+
+
+def load_population_probs(outcome):
+    df = pd.read_parquet(BASE_PATH / "app" / "all_preds" / f"{outcome}.parquet")
+    return df["prob"].values, df["label"].values
+
+
+def load_bin_thresholds(outcome_name):
+    """
+    Loads bin thresholds for a given outcome/model from .npz files.
+    Returns an array of bin edges.
+    """
+    thresholds_path = BASE_PATH / "app" / "bin_thresholds" / f"{outcome_name}.npz"
+    npz_data = np.load(thresholds_path)
+    return npz_data["thresholds"]
 
 
 def get_risk_category(prob, outcome):
@@ -68,7 +85,7 @@ def transform_tumor_site(input_val):
         case "Surface":
             return "Malignant neoplasm of surface of tongue"
         case "Unspecified":
-            return "Malignant neoplasm of surface of tongue"
+            return "Malignant neoplasm of tongue unspecified"
         case _:
             raise ValueError(f"Invalid input: {input_val}.")
 
