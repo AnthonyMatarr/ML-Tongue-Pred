@@ -22,15 +22,15 @@ def load_bin_thresholds(outcome_name):
 
 
 def get_risk_category(prob, outcome):
-    THRESHOLDS = joblib.load(BASE_PATH / "app" / "thresholds.joblib")
+    # THRESHOLDS = joblib.load(BASE_PATH / "app" / "thresholds.joblib")
     """Assign outcome-specific risk category."""
-    t = THRESHOLDS[outcome]
+    thresholds = load_bin_thresholds(outcome)
 
-    if prob < t["very_low"]:
+    if prob < thresholds[0]:
         return "Very Low Risk", "🟢"
-    elif prob < t["low"]:
+    elif prob < thresholds[1]:
         return "Low Risk", "🟡"
-    elif prob < t["moderate"]:
+    elif prob < thresholds[2]:
         return "Moderate Risk", "🟠"
     else:
         return "High Risk", "🔴"

@@ -348,13 +348,13 @@ def main():
                             value=f"{prob_positive:.2%}",
                             delta=None,
                         )
+                    bin_thresholds = util.load_bin_thresholds(folder_name)
 
                     with col_b:
                         risk, color = util.get_risk_category(prob_positive, folder_name)
                         st.metric(label="Risk Category", value=f"{color} {risk}")
                     with col_c:
                         try:
-                            bin_thresholds = util.load_bin_thresholds(folder_name)
                             labels = ["Very Low", "Low", "Moderate", "High"]
                             cutoffs = [0.0] + list(bin_thresholds) + [1.0]
                             bin_idx = np.digitize([prob_positive], cutoffs[1:])[
