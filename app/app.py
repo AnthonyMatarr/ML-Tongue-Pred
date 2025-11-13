@@ -83,17 +83,24 @@ def main():
         if weight_unknown:
             weight = None
         else:
-            weight = st.number_input(
-                "Weight (lbs)", min_value=0.0, max_value=None, value=170.0
-            )
+            ## Option of lbs or kgs
+            weight_unit = st.radio("Weight unit", ["lbs", "kg"], index=1)
+            if weight_unit == "lbs":
+                weight = st.number_input("Weight (lbs)", min_value=0.0, value=170.0)
+            else:
+                weight_kg = st.number_input("Weight (kg)", min_value=0.0, value=77.0)
+                weight = weight_kg * 2.20462  # Convert kg to lbs
         # Height
         height_unknown = st.checkbox("Height is unknown")
         if height_unknown:
             height = None
         else:
-            height = st.number_input(
-                "Height (in)", min_value=0.0, max_value=None, value=66.0
-            )
+            height_unit = st.radio("Height unit", ["in", "m"], index=1)
+            if height_unit == "in":
+                height = st.number_input("Height (in)", min_value=0.0, value=66.0)
+            else:
+                height_m = st.number_input("Height (m)", min_value=0.0, value=1.68)
+                height = height_m * 39.3701  # Convert m to inches
 
         age_unknown = st.checkbox("Age is unknown")
         if age_unknown:
