@@ -78,17 +78,29 @@ def main():
     with col1:
         st.subheader("Demographics")
         sex = st.selectbox("Sex", ["Male", "Female"], index=0)  # --> 1/0
-        weight = st.number_input(
-            "Weight (lbs)", min_value=0.0, max_value=None, value=170.0
-        )
-        height = st.number_input(
-            "Height (in)", min_value=0.0, max_value=None, value=66.0
-        )
+        # Weight
+        weight_unknown = st.checkbox("Weight is unknown")
+        if weight_unknown:
+            weight = None
+        else:
+            weight = st.number_input(
+                "Weight (lbs)", min_value=0.0, max_value=None, value=170.0
+            )
+        # Height
+        height_unknown = st.checkbox("Height is unknown")
+        if height_unknown:
+            height = None
+        else:
+            height = st.number_input(
+                "Height (in)", min_value=0.0, max_value=None, value=66.0
+            )
 
-        # bmi = st.number_input(
-        #     "BMI (kg/m^2)", min_value=11.0, max_value=82.0, value=26.7
-        # )
-        age = st.number_input("Age", min_value=1, max_value=90, value=63)
+        age_unknown = st.checkbox("Age is unknown")
+        if age_unknown:
+            age = None
+        else:
+            age = st.number_input("Age", min_value=1, max_value=90, value=63)
+
         hispanic = st.selectbox(
             "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"], index=1  # --> 1/0
         )  # fix to be 1/0
@@ -139,15 +151,27 @@ def main():
         bleed = st.selectbox("Bleeding Disorder", ["Yes", "No"], index=1)
         transfus = st.selectbox("Blood Transfusion", ["Yes", "No"], index=1)
         prsepis = st.selectbox("Sepsis", ["Yes", "No"], index=1)
-        pralbumin = st.number_input(
-            "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
-        )
-        prwbc = st.number_input(
-            "White Blood Cell Count (*10^9/L)",
-            min_value=0.0,
-            max_value=None,
-            value=7.0,
-        )
+        ## Albumin
+        alb_unknown = st.checkbox("Albumin is unknown")
+        if alb_unknown:
+            pralbumin = None
+        else:
+            pralbumin = st.number_input(
+                "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
+            )
+
+        ## WBC
+        wbc_unknown = st.checkbox("White Blood Cell Count is unknown")
+        if wbc_unknown:
+            prwbc = None
+        else:
+            prwbc = st.number_input(
+                "White Blood Cell Count (*10^9/L)",
+                min_value=0.0,
+                max_value=None,
+                value=7.0,
+            )
+
         func_stat = st.selectbox(
             "Functional Status", ["Independent", "Dependent"], index=0
         )  # --> 1/0
@@ -173,9 +197,15 @@ def main():
             ],
             index=2,
         )
-        optime = st.number_input(
-            "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
-        )
+        ##Op-time
+        opt_unknown = st.checkbox("Operation Time is unknown")
+        if opt_unknown:
+            optime = None
+        else:
+            optime = st.number_input(
+                "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
+            )
+
     with col4:
         st.subheader("Head and Neck Procedures")
         part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"], index=1)
@@ -357,9 +387,8 @@ def main():
                         try:
                             labels = ["Very Low", "Low", "Moderate", "High"]
                             cutoffs = [0.0] + list(bin_thresholds) + [1.0]
-                            bin_idx = np.digitize([prob_positive], cutoffs[1:])[
-                                0
-                            ]  # returns bin index
+                            # returns bin index
+                            bin_idx = np.digitize([prob_positive], cutoffs[1:])[0]
 
                             # Build output lines with bold for the active bin
                             lines = []
@@ -369,7 +398,7 @@ def main():
                                     # Bold the whole line
                                     line = f"<b>{line}</b>"
                                 lines.append(line)
-                            # Join using <br> for newlines
+                            # <br> for newlines
                             st.markdown("<br>".join(lines), unsafe_allow_html=True)
                         except Exception as e:
                             st.warning(f"Could not load thresholds: {str(e)}")
@@ -410,10 +439,10 @@ def main():
                 except Exception as e:
                     st.error(f"Error predicting {display_name}: {str(e)}")
 
-        # Optional: Display input summary
+        # Display input summary
         with st.expander("📋 Input Summary"):
             display_df = input_data.T.astype(str)
-            st.dataframe(display_df, width="stretch")  # Updated API
+            st.dataframe(display_df, width="stretch")
 
 
 if __name__ == "__main__":
