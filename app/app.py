@@ -17,7 +17,7 @@ from src.preprocess import remove_prefix
 OUTCOMES = {
     "Aspiration Related Complications": "asp",
     "Bleeding Transfusion": "bleed",
-    "Death": "mort",
+    # "Death": "mort", #binning is so bad for this, would be detrimental to include
     "Surgical Wound Complications": "surg",
 }
 
@@ -114,6 +114,7 @@ def main():
             ],
             index=0,
         )
+
     with col2:
         st.subheader("Pre-Op Characteristics")
         mal_neoplasm = st.selectbox(
@@ -175,6 +176,7 @@ def main():
         func_stat = st.selectbox(
             "Functional Status", ["Independent", "Dependent"], index=0
         )  # --> 1/0
+
     with col3:
         st.subheader("Intra-Op Characteristics")
         inout = st.selectbox("Setting", ["Inpatient", "Outpatient"], index=0)  # --> 1/0
@@ -361,28 +363,27 @@ def main():
 
                     # Extract scalar probability
                     if probabilities.ndim == 1:
-                        prob_positive = float(
-                            probabilities[0]
-                        )  # ← Convert to Python float
+                        prob_positive = float(probabilities[0])
                     else:
-                        prob_positive = float(
-                            probabilities[0, 1]
-                        )  # ← Extract and convert
+                        # output is 2D
+                        prob_positive = float(probabilities[0, 1])
 
                     # Display results
                     col_a, col_b, col_c, col_d = st.columns(4)
 
+                    ## Model output as %
                     with col_a:
                         st.metric(
                             label="Risk Probability",
                             value=f"{prob_positive:.2%}",
                             delta=None,
                         )
+                    # Risk bin
                     bin_thresholds = util.load_bin_thresholds(folder_name)
-
                     with col_b:
                         risk, color = util.get_risk_category(prob_positive, folder_name)
                         st.metric(label="Risk Category", value=f"{color} {risk}")
+                    # Display all bin thresholds
                     with col_c:
                         try:
                             labels = ["Very Low", "Low", "Moderate", "High"]
@@ -402,7 +403,7 @@ def main():
                             st.markdown("<br>".join(lines), unsafe_allow_html=True)
                         except Exception as e:
                             st.warning(f"Could not load thresholds: {str(e)}")
-
+                    # Display percentiles
                     with col_d:
                         all_probs, all_labels = util.load_population_probs(folder_name)
 
@@ -419,7 +420,6 @@ def main():
                             all_probs[all_labels == 1] < prob_positive
                         ).mean() * 100
 
-                        # Display
                         st.markdown(
                             f"<b>{overall_pctile:.1f}%</b> of <b>all</b>  patients in this analysis received a lower risk score than this patient</b>",
                             unsafe_allow_html=True,
