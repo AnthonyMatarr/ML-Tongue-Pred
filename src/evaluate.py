@@ -318,7 +318,7 @@ def evaluate_models(
         )
     CLASS_REPORT_DICT = {"train": {}, "val": {}, "test": {}}
     for model_name, model in model_dict.items():
-        print(f'{"-"*20} Model: {model_name} {"-"*20}')
+        print(f"Model: {model_name}...")
         ########## Get probabilities  ###########
         y_proba_train = model.predict_proba(X_train)[:, 1]
         y_proba_val = model.predict_proba(X_val)[:, 1]
