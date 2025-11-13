@@ -392,7 +392,7 @@ def main():
 
                         # Display
                         st.markdown(
-                            f"Percentile among all qualified patients in NSQIP 2008-2022:<br>"
+                            f"Percentile among all qualified patients in NSQIP 2008-2023:<br>"
                             f"<b>{overall_pctile:.1f}%</b>",
                             unsafe_allow_html=True,
                         )
