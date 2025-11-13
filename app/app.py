@@ -103,7 +103,7 @@ def main():
             index=0,
         )
     with col2:
-        st.subheader("Pre-Op Chatacteristics")
+        st.subheader("Pre-Op Characteristics")
         mal_neoplasm = st.selectbox(
             "Tumor Site",
             [
