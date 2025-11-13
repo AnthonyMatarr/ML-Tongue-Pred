@@ -27,13 +27,13 @@ def get_risk_category(prob, outcome):
     thresholds = load_bin_thresholds(outcome)
 
     if prob < thresholds[0]:
-        return "Very Low Risk", "🟢"
+        return "Very Low", "🟢"
     elif prob < thresholds[1]:
-        return "Low Risk", "🟡"
+        return "Low", "🟡"
     elif prob < thresholds[2]:
-        return "Moderate Risk", "🟠"
+        return "Moderate", "🟠"
     else:
-        return "High Risk", "🔴"
+        return "High", "🔴"
 
 
 def transform_yes_no(input_val):
