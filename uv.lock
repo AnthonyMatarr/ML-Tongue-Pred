@@ -1476,7 +1476,7 @@ requires-dist = [
 [[package]]
 name = "mlstatkit"
 version = "0.1.91"
-source = { git = "https://github.com/AnthonyMatarr/MLstatkit.git#5b24e19f2cc16af1a956adae6130d3ffdcc41ace" }
+source = { git = "https://github.com/AnthonyMatarr/MLstatkit.git#c5e5d4646bcaae625d5401ffb967fa466c79eeb8" }
 dependencies = [
     { name = "numpy" },
     { name = "scikit-learn" },
