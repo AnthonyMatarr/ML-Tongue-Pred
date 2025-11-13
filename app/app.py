@@ -392,18 +392,15 @@ def main():
 
                         # Display
                         st.markdown(
-                            f"Percentile among all qualified patients in NSQIP 2008-2023:<br>"
-                            f"<b>{overall_pctile:.1f}%</b>",
+                            f"<b>{overall_pctile:.1f}%</b> of <b>all</b>  patients in this analysis received a lower risk score than this patient</b>",
                             unsafe_allow_html=True,
                         )
                         st.markdown(
-                            f"Percentile among patients who DID NOT have the outcome:<br>"
-                            f"<b>{neg_pctile:.1f}%</b>",
+                            f"<b>{neg_pctile:.1f}%</b> of patients who <b>did not</b> suffer this outcome received a lower risk score than this patient</b>",
                             unsafe_allow_html=True,
                         )
                         st.markdown(
-                            f"Percentile among patients who DID have the outcome:<br>"
-                            f"<b>{pos_pctile:.1f}%</b>",
+                            f"<b>{pos_pctile:.1f}%</b> of patients who <b>did</b> suffer this outcome received a lower risk score than this patient",
                             unsafe_allow_html=True,
                         )
 
