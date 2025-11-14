@@ -45,18 +45,17 @@ def main():
         layout="wide",
     )
 
-    st.title("PRO-TONGUE: Post-Resection Outcomes for tongue tumor excision")
+    st.title("PRO-TONGUE: Post-Resection Outcomes for tongue cancer")
     st.markdown(
-        "Predict 30-day complications after head and neck surgery for tongue neoplasm"
+        "Predict 30-day complications after head and neck surgery for tongue cancer"
     )
     st.info(
-        "Default values for categorical variables are no for yes/no options--unknown if available--and the most prominent instance otherwise. Numerical defaults represent median values. "
-    )
-    st.info(
-        "Adjust all fields to match your patient. To reset to default values, refresh the page. "
+        "Default values are arbitrarily. Adjust all fields to match your patient. To reset to default values, refresh the page. "
     )
 
-    # Sidebar: Outcome selection
+    #################################################################################################################
+    ################################################### Side Bar ####################################################
+    #################################################################################################################
     st.sidebar.header("Select Outcomes to Predict")
     selected_outcomes = []
     for display_name, folder_name in OUTCOMES.items():
@@ -66,11 +65,10 @@ def main():
     if not selected_outcomes:
         st.warning("Please select at least one outcome to predict")
         return
-    ## Reset button
-    if st.sidebar.button("🔄 Clear Prediction", key="reset_btn"):
-        st.rerun()
 
-    # Main input section
+    #################################################################################################################
+    ################################################# Input Section #################################################
+    #################################################################################################################
     st.header("Patient Information")
 
     col1, col2, col3, col4 = st.columns(4)
@@ -79,34 +77,22 @@ def main():
         st.subheader("Demographics")
         sex = st.selectbox("Sex", ["Male", "Female"], index=0)  # --> 1/0
         # Weight
-        weight_unknown = st.checkbox("Weight is unknown")
-        if weight_unknown:
-            weight = None
+        ## Option of lbs or kgs
+        weight_unit = st.radio("Weight unit", ["lbs", "kg"], index=1)
+        if weight_unit == "lbs":
+            weight = st.number_input("Weight (lbs)", min_value=0.0, value=170.0)
         else:
-            ## Option of lbs or kgs
-            weight_unit = st.radio("Weight unit", ["lbs", "kg"], index=1)
-            if weight_unit == "lbs":
-                weight = st.number_input("Weight (lbs)", min_value=0.0, value=170.0)
-            else:
-                weight_kg = st.number_input("Weight (kg)", min_value=0.0, value=77.0)
-                weight = weight_kg * 2.20462  # Convert kg to lbs
+            weight_kg = st.number_input("Weight (kg)", min_value=0.0, value=77.0)
+            weight = weight_kg * 2.20462  # Convert kg to lbs
         # Height
-        height_unknown = st.checkbox("Height is unknown")
-        if height_unknown:
-            height = None
+        height_unit = st.radio("Height unit", ["in", "m"], index=1)
+        if height_unit == "in":
+            height = st.number_input("Height (in)", min_value=0.0, value=66.0)
         else:
-            height_unit = st.radio("Height unit", ["in", "m"], index=1)
-            if height_unit == "in":
-                height = st.number_input("Height (in)", min_value=0.0, value=66.0)
-            else:
-                height_m = st.number_input("Height (m)", min_value=0.0, value=1.68)
-                height = height_m * 39.3701  # Convert m to inches
+            height_m = st.number_input("Height (m)", min_value=0.0, value=1.68)
+            height = height_m * 39.3701  # Convert m to inches
 
-        age_unknown = st.checkbox("Age is unknown")
-        if age_unknown:
-            age = None
-        else:
-            age = st.number_input("Age", min_value=1, max_value=90, value=63)
+        age = st.number_input("Age", min_value=1, max_value=90, value=63)
 
         hispanic = st.selectbox(
             "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"], index=1  # --> 1/0
@@ -123,19 +109,7 @@ def main():
         )
 
     with col2:
-        st.subheader("Pre-Op Characteristics")
-        mal_neoplasm = st.selectbox(
-            "Tumor Site",
-            [
-                "Anterior two-thirds",  # --> Malignant neoplasm of anterior two-thirds of tongue unspecified
-                "Base",  # --> Malignant neoplasm of base of tongue
-                "Border",  # --> Malignant neoplasm of border of tongue
-                "Junctional Zone",  # --> Malignant neoplasm of junctional zone of tongue
-                "Surface",  # --> Malignant neoplasm of surface of tongue
-                "Unspecified",  # --> Malignant neoplasm of surface of tongue
-            ],
-            index=5,
-        )
+        st.subheader("Pre-Operative Characteristics")
         diabetes = st.selectbox("Diabetes", ["Yes", "No"], index=1)
         smoke = st.selectbox("Current Smoker", ["Yes", "No"], index=1)
         dyspnea = st.selectbox(
@@ -160,32 +134,36 @@ def main():
         transfus = st.selectbox("Blood Transfusion", ["Yes", "No"], index=1)
         prsepis = st.selectbox("Sepsis", ["Yes", "No"], index=1)
         ## Albumin
-        alb_unknown = st.checkbox("Albumin is unknown")
-        if alb_unknown:
-            pralbumin = None
-        else:
-            pralbumin = st.number_input(
-                "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
-            )
+        pralbumin = st.number_input(
+            "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
+        )
 
         ## WBC
-        wbc_unknown = st.checkbox("White Blood Cell Count is unknown")
-        if wbc_unknown:
-            prwbc = None
-        else:
-            prwbc = st.number_input(
-                "White Blood Cell Count (*10^9/L)",
-                min_value=0.0,
-                max_value=None,
-                value=7.0,
-            )
+        prwbc = st.number_input(
+            "White Blood Cell Count (*10^9/L)",
+            min_value=0.0,
+            max_value=None,
+            value=7.0,
+        )
 
         func_stat = st.selectbox(
             "Functional Status", ["Independent", "Dependent"], index=0
         )  # --> 1/0
 
     with col3:
-        st.subheader("Intra-Op Characteristics")
+        st.subheader("Intra-Operative Characteristics")
+        mal_neoplasm = st.selectbox(
+            "Location of Tongue Tumor",
+            [
+                "Anterior two-thirds",  # --> Malignant neoplasm of anterior two-thirds of tongue unspecified
+                "Base",  # --> Malignant neoplasm of base of tongue
+                "Border",  # --> Malignant neoplasm of border of tongue
+                "Junctional Zone",  # --> Malignant neoplasm of junctional zone of tongue
+                "Surface",  # --> Malignant neoplasm of surface of tongue
+                "Unspecified",  # --> Malignant neoplasm of surface of tongue
+            ],
+            index=5,
+        )
         inout = st.selectbox("Setting", ["Inpatient", "Outpatient"], index=0)  # --> 1/0
         elect_surg = st.selectbox(
             "Case Type",
@@ -207,13 +185,9 @@ def main():
             index=2,
         )
         ##Op-time
-        opt_unknown = st.checkbox("Operation Time is unknown")
-        if opt_unknown:
-            optime = None
-        else:
-            optime = st.number_input(
-                "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
-            )
+        optime = st.number_input(
+            "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
+        )
 
     with col4:
         st.subheader("Head and Neck Procedures")
@@ -260,7 +234,7 @@ def main():
             "Tonsillectomy and Tonsillar Region Procedure", ["Yes", "No"], index=1
         )
 
-    # Create input dataframe
+    # ================== Create input DF ===================
     input_data = pd.DataFrame(
         {
             ## Col 1
@@ -345,7 +319,9 @@ def main():
         }
     )
 
-    # Predict button
+    #################################################################################################################
+    ############################################### Output Section ##################################################
+    #################################################################################################################
     if st.button("Predict Outcomes", type="primary", key="pred_btn"):
         st.header("Prediction Results")
 
@@ -353,6 +329,7 @@ def main():
         for display_name, folder_name in selected_outcomes:
             with st.expander(f"📊 {display_name}", expanded=True):
                 try:
+                    # ================== Get model output ===================
                     # Load model and preprocessor
                     model, preprocessor = load_model_pipeline(folder_name)
 
@@ -365,6 +342,7 @@ def main():
                     processed_data = remove_prefix(processed_data)
                     for col in processed_data.columns:
                         processed_data[col] = pd.to_numeric(processed_data[col])
+
                     ## predict
                     probabilities = model.predict_proba(processed_data)[:, 1]
 
@@ -376,7 +354,7 @@ def main():
                         prob_positive = float(probabilities[0, 1])
 
                     # Display results
-                    col_a, col_b, col_c, col_d = st.columns(4)
+                    col_a, col_b, col_c = st.columns(3)
 
                     ## Model output as %
                     with col_a:
@@ -385,13 +363,13 @@ def main():
                             value=f"{prob_positive:.2%}",
                             delta=None,
                         )
-                    # Risk bin
-                    bin_thresholds = util.load_bin_thresholds(folder_name)
+                    ## Risk Bins
                     with col_b:
+                        # Display appropriate risk category
+                        bin_thresholds = util.load_bin_thresholds(folder_name)
                         risk, color = util.get_risk_category(prob_positive, folder_name)
                         st.metric(label="Risk Category", value=f"{color} {risk}")
-                    # Display all bin thresholds
-                    with col_c:
+                        # Display bin thresholds
                         try:
                             labels = ["Very Low", "Low", "Moderate", "High"]
                             cutoffs = [0.0] + list(bin_thresholds) + [1.0]
@@ -410,8 +388,8 @@ def main():
                             st.markdown("<br>".join(lines), unsafe_allow_html=True)
                         except Exception as e:
                             st.warning(f"Could not load thresholds: {str(e)}")
-                    # Display percentiles
-                    with col_d:
+                    ## Percentiles
+                    with col_c:
                         all_probs, all_labels = util.load_population_probs(folder_name)
 
                         # Overall percentile
