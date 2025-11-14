@@ -72,26 +72,67 @@ def main():
     st.header("Patient Information")
 
     col1, col2, col3, col4 = st.columns(4)
-
+    # ================== Demographics ===================
     with col1:
         st.subheader("Demographics")
         sex = st.selectbox("Sex", ["Male", "Female"], index=0)  # --> 1/0
-        # Weight
-        ## Option of lbs or kgs
-        weight_unit = st.radio("Weight unit", ["lbs", "kg"], index=1)
-        if weight_unit == "lbs":
-            weight = st.number_input("Weight (lbs)", min_value=0.0, value=170.0)
-        else:
-            weight_kg = st.number_input("Weight (kg)", min_value=0.0, value=77.0)
-            weight = weight_kg * 2.20462  # Convert kg to lbs
-        # Height
-        height_unit = st.radio("Height unit", ["in", "m"], index=1)
-        if height_unit == "in":
-            height = st.number_input("Height (in)", min_value=0.0, value=66.0)
-        else:
-            height_m = st.number_input("Height (m)", min_value=0.0, value=1.68)
-            height = height_m * 39.3701  # Convert m to inches
 
+        # ================== Dynamic Weight ===================
+        # Store the previous unit in session state
+        if "prev_weight_unit" not in st.session_state:
+            st.session_state.prev_weight_unit = "kg"
+        if "weight_kg" not in st.session_state:
+            st.session_state.weight_kg = 77.11
+        if "weight_lbs" not in st.session_state:
+            st.session_state.weight_lbs = 170.0
+
+        weight_unit = st.radio("Weight unit", ["lbs", "kg"], index=1, key="weight_unit")
+
+        # Detect if the unit changed
+        if weight_unit != st.session_state.prev_weight_unit:
+            if weight_unit == "lbs":
+                # KG -> LBS
+                st.session_state.weight_lbs = st.session_state.weight_kg * 2.20462
+            else:
+                # LBS -> KG
+                st.session_state.weight_kg = st.session_state.weight_lbs / 2.20462
+            st.session_state.prev_weight_unit = weight_unit  # Update the tracker
+
+        # Render input
+        if weight_unit == "lbs":
+            weight = st.number_input("Weight (lbs)", min_value=0.0, key="weight_lbs")
+        else:
+            weight_kg = st.number_input("Weight (kg)", min_value=0.0, key="weight_kg")
+            weight = weight_kg * 2.20462
+
+        # ================== Dynamic Height ===================
+        # Store the previous unit in session state
+        if "prev_height_unit" not in st.session_state:
+            st.session_state.prev_height_unit = "m"
+        if "height_m" not in st.session_state:
+            st.session_state.height_m = 1.68
+        if "height_in" not in st.session_state:
+            st.session_state.height_in = 66.0
+
+        height_unit = st.radio("Height unit", ["in", "m"], index=1, key="height_unit")
+
+        # Detect if the unit changed
+        if height_unit != st.session_state.prev_height_unit:
+            if height_unit == "in":
+                # Meters -> Inches
+                st.session_state.height_in = st.session_state.height_m * 39.3701
+            else:
+                # Inches -> Meters
+                st.session_state.height_m = st.session_state.height_in / 39.3701
+            st.session_state.prev_height_unit = height_unit  # Update the tracker
+
+        # Render input
+        if height_unit == "in":
+            height = st.number_input("Height (in)", min_value=0.0, key="height_in")
+        else:
+            height_m = st.number_input("Height (m)", min_value=0.0, key="height_m")
+            height = height_m * 39.3701
+        # ================== Others ===================
         age = st.number_input("Age", min_value=1, max_value=90, value=63)
 
         hispanic = st.selectbox(
@@ -107,7 +148,7 @@ def main():
             ],
             index=0,
         )
-
+    # ================== Pre-Op ===================
     with col2:
         st.subheader("Pre-Operative Characteristics")
         diabetes = st.selectbox("Diabetes", ["Yes", "No"], index=1)
@@ -149,7 +190,7 @@ def main():
         func_stat = st.selectbox(
             "Functional Status", ["Independent", "Dependent"], index=0
         )  # --> 1/0
-
+    # ================== Intra-Op ===================
     with col3:
         st.subheader("Intra-Operative Characteristics")
         mal_neoplasm = st.selectbox(
@@ -188,7 +229,7 @@ def main():
         optime = st.number_input(
             "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
         )
-
+    # ================== Proc ===================
     with col4:
         st.subheader("Head and Neck Procedures")
         part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"], index=1)
@@ -353,7 +394,7 @@ def main():
                         # output is 2D
                         prob_positive = float(probabilities[0, 1])
 
-                    # Display results
+                    # ================== Display Results ===================
                     col_a, col_b, col_c = st.columns(3)
 
                     ## Model output as %

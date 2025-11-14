@@ -1,5 +1,4 @@
 from pathlib import Path
-import joblib
 import numpy as np
 import pandas as pd
 
@@ -22,7 +21,6 @@ def load_bin_thresholds(outcome_name):
 
 
 def get_risk_category(prob, outcome):
-    # THRESHOLDS = joblib.load(BASE_PATH / "app" / "thresholds.joblib")
     """Assign outcome-specific risk category."""
     thresholds = load_bin_thresholds(outcome)
 
