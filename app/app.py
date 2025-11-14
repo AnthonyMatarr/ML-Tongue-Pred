@@ -50,7 +50,7 @@ def main():
         "Predict 30-day complications after head and neck surgery for tongue cancer"
     )
     st.info(
-        "Default values are arbitrarily. Adjust all fields to match your patient. To reset to default values, refresh the page. "
+        "Default values are set arbitrarily. Adjust all fields to match your patient. To reset to default values, refresh the page. "
     )
 
     #################################################################################################################
