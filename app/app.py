@@ -424,11 +424,6 @@ def main():
                 except Exception as e:
                     st.error(f"Error predicting {display_name}: {str(e)}")
 
-        # Display input summary
-        with st.expander("📋 Input Summary"):
-            display_df = input_data.T.astype(str)
-            st.dataframe(display_df, width="stretch")
-
 
 if __name__ == "__main__":
     main()
