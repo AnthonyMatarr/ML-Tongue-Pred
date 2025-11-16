@@ -312,9 +312,9 @@ def exclude_col(col, outcome, outcome_sub_cols):
         return True
     elif outcome == "Surgical_Outcome" and col == "Any Surgical Complication":
         return True
-    elif outcome == "Bleed_Outcome" and col == "OTHBLEED":
+    elif outcome == "Aspiration_Outcome" and col == "Any Aspiration Complication":
         return True
-    elif outcome == "Aspiration_Outcome" and col == "Any Medical Complication":
+    elif outcome == "Bleed_Outcome" and col == "OTHBLEED":
         return True
     elif outcome == "Mortality_Outcome" and col in ["Mortality", "DISCHDEST", "WNDINF"]:
         return True
