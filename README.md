@@ -6,6 +6,7 @@ This project implements Logistic Regression, Support Vector Classifier, LightGBM
 
 ## Associated Risk Calculator
 A web application was developed to deploy the calibrated Stacked Generalization models for Bleeding, Aspiration, and Surgical complications. Mortality was left out due to poor performance. This interface can be found [here](https://pro-tongue.streamlit.app/).
+The app may also be ran locally with command `uv run streamlit run app/app.py`, once all other steps in [the Instillation Steps](#installation) are completed.
 ### Features
 - Choose between any of the three available outcomes
 - Input patient values into approriate fields (all fields used as input to the Stack model)
