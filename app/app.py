@@ -15,10 +15,10 @@ from src.preprocess import remove_prefix
 
 # Configuration
 OUTCOMES = {
-    "Aspiration Related Complications": "asp",
+    "Aspiration-related Complications": "asp",
     "Bleeding Transfusion": "bleed",
     # "Death": "mort", #binning is so bad for this, would be detrimental to include
-    "Surgical Wound Complications": "surg",
+    "Surgical Complications": "surg",
 }
 
 
@@ -420,7 +420,7 @@ def main():
                             # Build output lines with bold for the active bin
                             lines = []
                             for i, lab in enumerate(labels):
-                                line = f"{lab}: {cutoffs[i]:.2%} – {cutoffs[i+1]:.2%}"
+                                line = f"{lab}: {cutoffs[i]:.1%} – {cutoffs[i+1]:.1%}"
                                 if i == bin_idx:
                                     # Bold the whole line
                                     line = f"<b>{line}</b>"
@@ -434,28 +434,29 @@ def main():
                         all_probs, all_labels = util.load_population_probs(folder_name)
 
                         # Overall percentile
+                        n_overall = len(all_probs)
                         overall_pctile = (all_probs < prob_positive).mean() * 100  # type: ignore
 
                         # Percentile among patients WITHOUT the outcome (label==0)
-                        neg_pctile = (
-                            all_probs[all_labels == 0] < prob_positive
-                        ).mean() * 100
+                        neg_patients = all_probs[all_labels == 0]
+                        n_neg = len(neg_patients)
+                        neg_pctile = (neg_patients < prob_positive).mean() * 100
 
                         # Percentile among patients WITH the outcome (label==1)
-                        pos_pctile = (
-                            all_probs[all_labels == 1] < prob_positive
-                        ).mean() * 100
+                        pos_patients = all_probs[all_labels == 1]
+                        n_pos = len(pos_patients)
+                        pos_pctile = (pos_patients < prob_positive).mean() * 100
 
                         st.markdown(
-                            f"<b>{overall_pctile:.1f}%</b> of <b>all</b>  patients in this analysis received a lower risk score than this patient</b>",
+                            f"<b>{overall_pctile:.1f}%</b> of <b>all patients sampled</b> (n={n_overall}) received a lower risk score than this patient</b>",
                             unsafe_allow_html=True,
                         )
                         st.markdown(
-                            f"<b>{neg_pctile:.1f}%</b> of patients who <b>did not</b> suffer this outcome received a lower risk score than this patient</b>",
+                            f"<b>{neg_pctile:.1f}%</b> of patients sampled who <b>did not suffer this outcome</b> (n={n_neg}) received a lower risk score than this patient</b>",
                             unsafe_allow_html=True,
                         )
                         st.markdown(
-                            f"<b>{pos_pctile:.1f}%</b> of patients who <b>did</b> suffer this outcome received a lower risk score than this patient",
+                            f"<b>{pos_pctile:.1f}%</b> of patients who <b>did suffer this outcome</b> (n={n_pos}) received a lower risk score than this patient",
                             unsafe_allow_html=True,
                         )
 
