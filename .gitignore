@@ -7,3 +7,5 @@ results/
 models/
 !app/models/
 .vscode
+cal_models/
+src/config.py

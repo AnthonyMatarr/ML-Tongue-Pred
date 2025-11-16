@@ -1,10 +1,11 @@
 from pathlib import Path
-import torch
+
 
 # Random state used for entire project
 SEED = 42
 ## Absolute base path to project root directory
-BASE_PATH = Path()
+BASE_PATH = Path("")
 # Device used for torch
-# DEVICE = "mps" if torch.backends.mps.is_available() else "cpu" ## mps used for tuning
+# import torch
+# DEVICE = "mps" if torch.backends.mps.is_available() else "cpu" ## mps used for tuning ONLY (if want to use model in interface)
 DEVICE = "cpu"  # cpu used for everything else
