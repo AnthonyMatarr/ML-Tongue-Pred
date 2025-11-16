@@ -26,14 +26,14 @@ OUTCOMES = {
 @st.cache_resource
 def load_model_pipeline(outcome_name):
     """Load model and preprocessor for a specific outcome."""
-    model_path = BASE_PATH / "app" / "models" / f"{outcome_name}_lr.joblib"
+    model_path = BASE_PATH / "app" / "models" / f"{outcome_name}_stack.joblib"
     # # force CPU during load
     # with torch.device("cpu"):
     #     # Use stack model
     # model = joblib.load(model_path)
     model = joblib.load(model_path)
     preprocessor = joblib.load(
-        BASE_PATH / "preprocessors" / f"preprocessor_outcome_{outcome_name}.joblib"
+        BASE_PATH / "app" / "preprocessors" / f"{outcome_name}_stack.joblib"
     )
     return model, preprocessor
 
@@ -50,7 +50,7 @@ def main():
         "Predict 30-day complications after head and neck surgery for tongue cancer"
     )
     st.info(
-        "Default values are set arbitrarily. Adjust all fields to match your patient. To reset to default values, refresh the page. "
+        "Adjust all fields to match your patient. Default values are set arbitrarily. To reset to default values, refresh the page. "
     )
 
     #################################################################################################################
