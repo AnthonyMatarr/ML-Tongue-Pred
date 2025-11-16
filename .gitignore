@@ -5,4 +5,5 @@ logs/
 .DS_Store
 results/
 models/
+!app/models/
 .vscode

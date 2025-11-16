@@ -1,4 +1,4 @@
-from src.config import SEED
+from src.config import SEED, BASE_PATH
 
 from operator import xor
 import warnings
@@ -7,12 +7,92 @@ from pathlib import Path
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn import calibration
 from sklearn.metrics import roc_curve, confusion_matrix
 from MLstatkit import Bootstrapping
+import pandas as pd
 
 
 ########################################## Helper Functions ##########################################
+def get_percentile_range_thresholds(y_proba, n_bins=4, lower=1, upper=99):
+    """
+    Returns thresholds using the [lower, upper] percentiles of y_proba, dividing the interval into (as close as possible) equal-width bins.
+    """
+    # Compute robust min/max using percentiles
+    lo = np.percentile(y_proba, lower)
+    hi = np.percentile(y_proba, upper)
+    edges = np.linspace(lo, hi, n_bins + 1)
+    # Internal edges only (drop low/high)
+    thresholds = edges[1:-1]
+    return thresholds  # 1D array, length n_bins-1
+
+
+def get_logspace_thresholds(y_proba, n_bins=4, lower=1e-5, upper=None):
+    """
+    Returns thresholds spaced evenly on a log scale within [lower, upper], gracefully handling zero predictions.
+    """
+    if upper is None:
+        upper = np.percentile(y_proba, 99)  # or use max(y_proba)
+    # Avoid log(0) by setting very small lower bound
+    lo = max(lower, np.min(y_proba[y_proba > 0]))
+    hi = upper
+    # Make log-spaced edges
+    edges = np.logspace(np.log10(lo), np.log10(hi), n_bins + 1)
+    thresholds = edges[1:-1]
+    return thresholds
+
+
+def plot_risk_bar_dot(y_true, y_proba, thresholds, ax=None):
+    """
+    Allocates predictions to bins, calculates outcome rate & mean prediction for each bin,
+    and makes a bar graph with risk curve overlay.
+    """
+    thresholds = np.asarray(thresholds, dtype=float).flatten()
+    n_bins = len(thresholds) + 1
+    bin_indices = np.digitize(y_proba, thresholds, right=False)  # 0,1,...,n_bins-1
+
+    event_rates = []
+    mean_preds = []
+    counts = []
+
+    for b in range(n_bins):
+        mask = bin_indices == b
+        n = mask.sum()
+        counts.append(n)
+        if n == 0:
+            event_rates.append(np.nan)
+            mean_preds.append(np.nan)
+        else:
+            event_rates.append(y_true[mask].mean())
+            mean_preds.append(y_proba[mask].mean())
+
+    # Label bins as "Bin 0", "Bin 1", ...
+    bins_labels = [f"Bin {i}" for i in range(n_bins)]
+
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar(range(n_bins), event_rates, color="C0", alpha=0.7, label="Event Rate")
+    ax.plot(range(n_bins), mean_preds, "o-", color="C1", label="Avg. Predicted Risk")
+    ax.set_xticks(range(n_bins))
+    ax.set_xticklabels(bins_labels, rotation=0)
+    ax.set_ylabel("Fraction With Outcome / Mean Prediction")
+    ax.set_xlabel("Risk Bin")
+    ax.legend()
+
+    # n=XXXX at bottom of bar
+    for i, n in enumerate(counts):
+        ax.text(
+            i,
+            0.0,
+            f"n={n}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+            color="k",
+        )
+    plt.tight_layout()
+    return ax
+
+
 def get_cm(
     model_name,
     outcome_name,
@@ -70,7 +150,15 @@ def get_cm(
 
 
 def get_discrimination_str(
-    *_, y_true, y_proba, metric_str, threshold, n_bootstraps=5000, random_state=SEED
+    *_,
+    y_true,
+    y_proba,
+    metric_str,
+    threshold,
+    n_bootstraps=5000,
+    random_state=SEED,
+    bin_thresholds=None,
+    show_progress=False,
 ):
     """
     Calculate a value and 95% CI for a given metric using MLStakit.Bootstrapping
@@ -103,20 +191,36 @@ def get_discrimination_str(
     """
     if _ != tuple():
         raise ValueError("This function does not take positional arguments")
-    metric_val, ci_lower, ci_upper = Bootstrapping(
-        y_true,
-        y_proba,
-        metric_str=metric_str,
-        n_bootstraps=n_bootstraps,
-        confidence_level=0.95,
-        threshold=threshold,
-        random_state=random_state,
-    )
+    if metric_str == "ici":
+        metric_val, ci_lower, ci_upper = Bootstrapping(
+            y_true,
+            y_proba,
+            metric_str=metric_str,
+            n_bootstraps=n_bootstraps,
+            confidence_level=0.95,
+            threshold=threshold,
+            random_state=random_state,
+            bin_thresholds=bin_thresholds,
+            show_progress=show_progress,
+        )
+    else:
+        metric_val, ci_lower, ci_upper = Bootstrapping(
+            y_true,
+            y_proba,
+            metric_str=metric_str,
+            n_bootstraps=n_bootstraps,
+            confidence_level=0.95,
+            threshold=threshold,
+            random_state=random_state,
+            show_progress=show_progress,
+        )
     final_str = f"{metric_val:.3f} ({ci_lower:.3f}, {ci_upper:.3f})"
     return final_str
 
 
-def plot_ROC(y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED):
+def plot_ROC(
+    y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED, show_progress=False
+):
     """
     Plot ROC curve, get AUROC w/ CIs, determine threshold for hard predictions
     """
@@ -127,6 +231,7 @@ def plot_ROC(y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED):
         random_state=seed,
         metric_str="roc_auc",
         n_bootstraps=n_bootstraps,
+        show_progress=show_progress,
     )
     auc_string = f"{auc:.3f} ({lower_CI:.3f}-{upper_CI:.3f})"
     model_score = f"AUROC = {auc_string}"
@@ -137,40 +242,6 @@ def plot_ROC(y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED):
     optimal_threshold = thresholds[optimal_idx]
     plt.plot(fpr, tpr, lw=4, label=f"{data_type} {model_score}")
     return auc_string, optimal_threshold
-
-
-def plot_calibration(y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED):
-    """
-    Plot calibration curve and get calibration values
-    """
-    brier, br_low, br_high = Bootstrapping(
-        y_true,
-        y_proba,
-        metric_str="brier",
-        n_bootstraps=n_bootstraps,
-        random_state=seed,
-    )
-    prob_true, prob_pred = calibration.calibration_curve(
-        y_true, y_proba, n_bins=3, strategy="uniform"
-    )
-    ici, ici_low, ici_high = Bootstrapping(
-        y_true, y_proba, metric_str="ici", n_bootstraps=n_bootstraps, random_state=seed
-    )
-    if data_type == "train":
-        marker = "s"
-    elif data_type == "val":
-        marker = "*"
-    else:  # test
-        marker = "o"
-    brier_str = f"{brier:.3f} ({br_low:.3f}, {br_high:.3f})"
-    ici_str = f"{ici:.3f} ({ici_low:.3f}, {ici_high:.3f})"
-    plt.plot(
-        prob_pred,
-        prob_true,
-        marker=marker,
-        label=f"{data_type} Brier = {brier_str} & ICI = {ici_str}",
-    )
-    return
 
 
 ########################################## Main function ##########################################
@@ -184,12 +255,14 @@ def evaluate_models(
     y_val,
     X_test=None,
     y_test=None,
+    n_bins=4,
     results_path=None,
     threshold_str="val",
     n_bootstraps=5000,
     show_cm=False,
     show_roc=False,
     show_cal=False,
+    show_progress=False,
 ):
     """
     Given an outcome, for each model:
@@ -267,50 +340,75 @@ def evaluate_models(
         raise ValueError("This function does not take positional arguments")
     if xor(X_test is None, y_test is None):
         raise ValueError(
-            "One of X_test or y_test is None while the other is not. These arguments much match!"
+            "One of X_test or y_test is None while the other is not. The presence of these arguments much match!"
         )
     CLASS_REPORT_DICT = {"train": {}, "val": {}, "test": {}}
+    ## For each model
     for model_name, model in model_dict.items():
-        print(f'{"-"*20} Model: {model_name} {"-"*20}')
-        ########## Get probabilities  ###########
+        print(f"Model: {model_name}...")
+        # ================== ADD TO CLASS REPORT ===================
         y_proba_train = model.predict_proba(X_train)[:, 1]
         y_proba_val = model.predict_proba(X_val)[:, 1]
         if X_test is not None:
             y_proba_test = model.predict_proba(X_test)[:, 1]
         #################################################################################################################
-        ############################## ROC Plot + AUROC and get threshold for predictions ###############################
+        ########################################### AUROC + binary thresholds ###########################################
         #################################################################################################################
+        print(f"\t Dealing with AUROC...")
+        # ================== Add to class report ===================
         plt.figure(figsize=(12, 8))
         plt.plot(
             [0, 1], [0, 1], color="gray", linestyle="--", label="Random Classifier"
         )
         train_roc_str, train_estimated_threshold = plot_ROC(
-            y_train, y_proba_train, "Training", n_bootstraps=n_bootstraps
+            y_train,
+            y_proba_train,
+            "Training",
+            n_bootstraps=n_bootstraps,
+            show_progress=show_progress,
         )
         val_roc_str, val_estimated_threshold = plot_ROC(
-            y_val, y_proba_val, "Validation", n_bootstraps=n_bootstraps
+            y_val,
+            y_proba_val,
+            "Validation",
+            n_bootstraps=n_bootstraps,
+            show_progress=show_progress,
         )
         if X_test is not None:
             test_roc_str, _ = plot_ROC(
-                y_test, y_proba_test, "Testing", n_bootstraps=n_bootstraps
+                y_test,
+                y_proba_test,
+                "Testing",
+                n_bootstraps=n_bootstraps,
+                show_progress=show_progress,
             )
-        ###### Determine threshold ######
+        # ================== ADD TO CLASS REPORT ===================
         if threshold_str == "val":
-            print(
-                f"Using threshold determined by validation set: ~{val_estimated_threshold:.3f}"
-            )
-            threshold = val_estimated_threshold
+            print(f"\t Threshold determined by validation set")
+            binary_threshold = val_estimated_threshold
         elif threshold_str == "train":
-            print(
-                f"Using threshold determined by train set: ~{train_estimated_threshold}"
-            )
-            threshold = train_estimated_threshold
+            print(f"\t Threshold determined by train set")
+            binary_threshold = train_estimated_threshold
         else:
             warnings.warn(
                 f'Invalid input to "<threshold_str>" provided. Needs to be one of {"val", "train"}, got {threshold_str} instead. Using 0.5 as a threshold.'
             )
-            threshold = 0.5
-        #### Plot ####
+            binary_threshold = 0.5
+        # ================== Add to class report ===================
+        CLASS_REPORT_DICT["train"][model_name] = {
+            "AUROC (95% CI)": train_roc_str,
+            "Threshold": round(binary_threshold, 3),
+        }
+        CLASS_REPORT_DICT["val"][model_name] = {
+            "AUROC (95% CI)": val_roc_str,
+            "Threshold": round(binary_threshold, 3),
+        }
+        if X_test is not None:
+            CLASS_REPORT_DICT["test"][model_name] = {
+                "AUROC (95% CI)": test_roc_str,
+                "Threshold": round(binary_threshold, 3),
+            }
+        # ================== PLOT ===================
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.05])
         plt.xlabel("False Positive Rate", fontsize=21, fontweight=550)
@@ -336,14 +434,73 @@ def evaluate_models(
         else:
             plt.close()
         #################################################################################################################
+        ############################################## Risk Bins ########################################################
+        #################################################################################################################
+        # ================== GET BIN THRESHOLDS ===================
+        # Use train + val set
+        train_val_probs = np.concatenate([y_proba_train, y_proba_val])
+        ## linear-scale ##
+        # thresholds = get_percentile_range_thresholds(train_val_probs, n_bins=n_bins)
+        ##################
+        ## log-scale ##
+        bin_thresholds = get_logspace_thresholds(train_val_probs, n_bins=n_bins)
+        ################
+        if results_path:
+            bins_path = BASE_PATH / "app" / "bin_thresholds" / f"{outcome_name}.npz"
+            if bins_path.exists():
+                print(f"Over-writing bin data at path {bins_path}")
+                bins_path.unlink()
+            bins_path.parent.mkdir(exist_ok=True, parents=True)
+            np.savez(
+                bins_path,
+                thresholds=bin_thresholds,
+            )
+        # ================== PLOT RISK BARS ===================
+        if X_test is not None:
+            ax = plot_risk_bar_dot(y_test, y_proba_test, bin_thresholds)
+            plt.title(f"{model_name} Test Risk Stratification: {outcome_name}")
+            if results_path:
+                bin_plot_path = (
+                    results_path
+                    / "figures"
+                    / "risk_bins"
+                    / outcome_name
+                    / f"{model_name}.pdf"
+                )
+                if bin_plot_path.exists():
+                    print(f"Over-writing bin plot at path {bin_plot_path}")
+                bin_plot_path.parent.mkdir(exist_ok=True, parents=True)
+                plt.savefig(bin_plot_path, bbox_inches="tight")
+            if show_cal:
+                plt.show()
+            else:
+                plt.close()
+        #################################################################################################################
+        ################################### All predictions (for interface) #############################################
+        #################################################################################################################
+        ## ONLY compute if export is desired
+        if results_path:
+            # file path
+            all_pred_path = BASE_PATH / "app" / "all_preds" / f"{outcome_name}.parquet"
+            if all_pred_path.exists():
+                print(f"Over-writing all preds at path {all_pred_path}")
+                all_pred_path.unlink()
+            all_pred_path.parent.mkdir(exist_ok=True, parents=True)
+            # get preds
+            all_probs = np.concatenate([y_proba_train, y_proba_val, y_proba_test])
+            all_labels = np.concatenate([y_train, y_val, y_test])  # type: ignore
+            all_predictions = pd.DataFrame({"prob": all_probs, "label": all_labels})
+            all_predictions.to_parquet(all_pred_path)
+        #################################################################################################################
         ########################################### Get discrimination metrics ##########################################
         #################################################################################################################
-        metrics_strs = ["f1", "accuracy", "recall", "precision", "brier", "ici"]
-        ########## Get predictions  ###########
-        y_pred_train = (y_proba_train >= threshold).astype(int)
-        y_pred_val = (y_proba_val >= threshold).astype(int)
+        print(f"\t Getting discrimination metrics...")
+        # ================== Get predictions ===================
+        y_pred_train = (y_proba_train >= binary_threshold).astype(int)
+        y_pred_val = (y_proba_val >= binary_threshold).astype(int)
         if X_test is not None:
-            y_pred_test = (y_proba_test >= threshold).astype(int)  # type: ignore
+            y_pred_test = (y_proba_test >= binary_threshold).astype(int)  # type: ignore
+        # ================== Confusion Matrices ===================
         ##Train
         get_cm(
             model_name,
@@ -354,21 +511,7 @@ def evaluate_models(
             show_cm,
             results_path=results_path,
         )
-
-        CLASS_REPORT_DICT["train"][model_name] = {
-            "AUROC (95% CI)": train_roc_str,
-            "Threshold": round(threshold, 3),
-        }
-        for metric_str in metrics_strs:
-            CLASS_REPORT_DICT["train"][model_name][metric_str] = get_discrimination_str(
-                y_true=y_train,
-                y_proba=y_proba_train,
-                metric_str=metric_str,
-                threshold=threshold,
-                n_bootstraps=n_bootstraps,
-                random_state=SEED,
-            )
-        ##Val
+        ## Val
         get_cm(
             model_name,
             outcome_name,
@@ -378,20 +521,6 @@ def evaluate_models(
             show_cm,
             results_path=results_path,
         )
-        CLASS_REPORT_DICT["val"][model_name] = {
-            "AUROC (95% CI)": val_roc_str,
-            "Threshold": round(threshold, 3),
-        }
-        for metric_str in metrics_strs:
-            CLASS_REPORT_DICT["val"][model_name][metric_str] = get_discrimination_str(
-                y_true=y_val,
-                y_proba=y_proba_val,
-                metric_str=metric_str,
-                threshold=threshold,
-                n_bootstraps=n_bootstraps,
-                random_state=SEED,
-            )
-        ##Test
         if X_test is not None:
             get_cm(
                 model_name,
@@ -402,58 +531,48 @@ def evaluate_models(
                 show_cm,
                 results_path=results_path,
             )
-            CLASS_REPORT_DICT["test"][model_name] = {
-                "AUROC (95% CI)": test_roc_str,
-                "Threshold": round(threshold, 3),
-            }
-            for metric_str in metrics_strs:
+        # ================== Get accuracy, recall, precision, brier, ici ===================
+        metrics_strs = ["f1", "accuracy", "recall", "precision", "brier", "ici"]
+        for metric_str in metrics_strs:
+            ## Only need bin thresholds for ICI
+            if metric_str == "ici":
+                bin_thresholds_for_ici = bin_thresholds
+            else:
+                bin_thresholds_for_ici = None
+            ## Train
+            CLASS_REPORT_DICT["train"][model_name][metric_str] = get_discrimination_str(
+                y_true=y_train,
+                y_proba=y_proba_train,
+                metric_str=metric_str,
+                threshold=binary_threshold,
+                n_bootstraps=n_bootstraps,
+                random_state=SEED,
+                bin_thresholds=bin_thresholds_for_ici,
+                show_progress=show_progress,
+            )
+            ##Val
+            CLASS_REPORT_DICT["val"][model_name][metric_str] = get_discrimination_str(
+                y_true=y_val,
+                y_proba=y_proba_val,
+                metric_str=metric_str,
+                threshold=binary_threshold,
+                n_bootstraps=n_bootstraps,
+                random_state=SEED,
+                bin_thresholds=bin_thresholds_for_ici,
+                show_progress=show_progress,
+            )
+            ##Test
+            if X_test is not None:
                 CLASS_REPORT_DICT["test"][model_name][metric_str] = (
                     get_discrimination_str(
                         y_true=y_test,
                         y_proba=y_proba_test,
                         metric_str=metric_str,
-                        threshold=threshold,
+                        threshold=binary_threshold,
                         n_bootstraps=n_bootstraps,
                         random_state=SEED,
+                        bin_thresholds=bin_thresholds_for_ici,
+                        show_progress=show_progress,
                     )
                 )
-        #################################################################################################################
-        ######################################### Calibration curves ##########################################
-        #################################################################################################################
-        plt.figure(figsize=(12, 8))
-        plt.plot(
-            [0, 1], [0, 1], linestyle="--", color="gray", label="Perfect Calibration"
-        )
-        ##Train
-        plot_calibration(y_train, y_proba_train, "train", n_bootstraps=n_bootstraps)
-        ##Val
-        plot_calibration(y_val, y_proba_val, "val", n_bootstraps=n_bootstraps)
-        ##Test
-        if X_test is not None:
-            plot_calibration(y_test, y_proba_test, "test", n_bootstraps=n_bootstraps)
-
-        ### plot all ###
-        plt.xlabel("Predicted Probability")
-        plt.ylabel("Fraction of Positives")
-        plt.title(f"{model_name}")
-        plt.legend(loc="upper left", prop={"size": 15, "weight": 550})
-        plt.grid(True)
-        if results_path:
-            cal_path = (
-                Path(results_path)
-                / "figures"
-                / "calibration"
-                / "curves"
-                / outcome_name
-                / f"{model_name}_calcurve.pdf"
-            )
-            if cal_path.exists():
-                warnings.warn(f"Over-writing cal-curve at path {cal_path}")
-                cal_path.unlink()
-            cal_path.parent.mkdir(exist_ok=True, parents=True)
-            plt.savefig(cal_path, bbox_inches="tight")
-        if show_cal:
-            plt.show()
-        else:
-            plt.close()
     return CLASS_REPORT_DICT
