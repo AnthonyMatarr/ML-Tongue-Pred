@@ -33,7 +33,7 @@ def load_model_pipeline(outcome_name):
     # model = joblib.load(model_path)
     model = joblib.load(model_path)
     preprocessor = joblib.load(
-        BASE_PATH / "app" / "preprocessors" / f"{outcome_name}_stack.joblib"
+        BASE_PATH / "app" / "preprocessors" / f"{outcome_name}_pipeline.joblib"
     )
     return model, preprocessor
 
@@ -45,7 +45,7 @@ def main():
         layout="wide",
     )
 
-    st.title("PRO-TONGUE: Post-Resection Outcomes for tongue cancer")
+    st.title("PRO-TONGUE: A Post-Resection Outcome Prediction Tool for Tongue Cancer")
     st.markdown(
         "Predict 30-day complications after head and neck surgery for tongue cancer"
     )

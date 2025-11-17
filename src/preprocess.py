@@ -200,7 +200,7 @@ def transform_export_data(
 
     ### Save fitted preprocessor/pipeline ###
     if pipeline_path:
-        preprocessor_path = pipeline_path / f"preprocessor_{outcome_name}.joblib"
+        preprocessor_path = pipeline_path / f"{outcome_name}_pipeline.joblib"
         if preprocessor_path.exists():
             warnings.warn(f"Over-writing tabular data at path: {data_path}")
             preprocessor_path.unlink()
