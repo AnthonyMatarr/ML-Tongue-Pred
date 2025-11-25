@@ -4,6 +4,25 @@ import pandas as pd
 import joblib as jb
 
 
+def import_raw_data_dict(import_dir):
+    data_dict = {}
+    for file in import_dir.iterdir():
+        file_name = file.stem
+        file_ext = file.suffix
+        if file.is_dir():
+            continue
+        if file_ext == ".parquet":
+            print(f"Working on file: {file_name}...")
+            file_import = pd.read_parquet(file)
+        else:
+            print(f"\t File extension must be parquet got {file_ext} instead.")
+            print("\t Skipping file...")
+            continue
+        data_dict[file_name] = file_import
+    assert len(data_dict) == 17
+    return data_dict
+
+
 def get_data(outcome_folder, file_dir=BASE_PATH / "data" / "processed/"):
     """
     For a given outcome, get X/y train, validation, and testing data
@@ -46,7 +65,7 @@ def get_feature_lists(df):
         val_counts = df[col].value_counts()
         if len(val_counts) == 2:
             binary_cols.append(col)
-        elif len(val_counts) <= 20:
+        elif len(val_counts) <= 10:
             nominal_cols.append(col)
         else:
             numerical_cols.append(col)
