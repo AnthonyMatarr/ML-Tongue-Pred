@@ -21,7 +21,7 @@ def combine_columns(row):
         return np.nan
 
 
-def merge_dfs(data_dict):
+def merge_dfs(data_dict, verbose=False):
     """
     Merges NSQIP dataframes from 2008-2023, normalizing values to append vertically
 
@@ -49,11 +49,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["08"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["08"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["08"].shape)
+    if verbose:
+        print(no_codes_dict["08"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2009 ################
     ######################################
@@ -71,11 +72,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["09"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["09"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["09"].shape)
+    if verbose:
+        print(no_codes_dict["09"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2010 ################
     ######################################
@@ -93,11 +95,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["10"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["10"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["10"].shape)
+    if verbose:
+        print(no_codes_dict["10"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2011 ################
     ######################################
@@ -115,11 +118,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["11"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["11"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["11"].shape)
+    if verbose:
+        print(no_codes_dict["11"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2012 ################
     ######################################
@@ -159,11 +163,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["12"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["12"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["12"].shape)
+    if verbose:
+        print(no_codes_dict["12"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2013 ################
     ######################################
@@ -203,11 +208,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["13"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["13"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["13"].shape)
+    if verbose:
+        print(no_codes_dict["13"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2014 ################
     ######################################
@@ -248,11 +254,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["14"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["14"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["14"].shape)
+    if verbose:
+        print(no_codes_dict["14"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2015 ################
     ######################################
@@ -287,11 +294,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["15"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["15"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["15"].shape)
+    if verbose:
+        print(no_codes_dict["15"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2016 ################
     ######################################
@@ -326,11 +334,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["16"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["16"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["16"].shape)
+    if verbose:
+        print(no_codes_dict["16"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2017 ################
     ######################################
@@ -365,11 +374,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["17"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["17"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["17"].shape)
+    if verbose:
+        print(no_codes_dict["17"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2018 ################
     ######################################
@@ -404,11 +414,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["18"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["18"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["18"].shape)
+    if verbose:
+        print(no_codes_dict["18"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2019 ################
     ######################################
@@ -443,11 +454,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["19"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["19"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["19"].shape)
+    if verbose:
+        print(no_codes_dict["19"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2020 ################
     ######################################
@@ -482,11 +494,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["20"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["20"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["20"].shape)
+    if verbose:
+        print(no_codes_dict["20"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2021 ################
     ######################################
@@ -527,11 +540,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["21"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["21"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["21"].shape)
+    if verbose:
+        print(no_codes_dict["21"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2022 ################
     ######################################
@@ -569,12 +583,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["22"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["22"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["22"].shape)
-
+    if verbose:
+        print(no_codes_dict["22"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2023 ################
     ######################################
@@ -612,11 +626,12 @@ def merge_dfs(data_dict):
     temp_df.reset_index(drop=True, inplace=True)
     data_dict_clean["23"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["23"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["23"].shape)
+    if verbose:
+        print(no_codes_dict["23"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
     ######################################
     ################ 2024 ################
     ######################################
@@ -652,16 +667,29 @@ def merge_dfs(data_dict):
     temp_df["WNDINF"] = None
     temp_df["DYSPNEA"] = None
     temp_df.reset_index(drop=True, inplace=True)
-    data_dict_clean["24"] = temp_df
     ## DROP codes
-    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)] + [
-        "CASEID"
-    ]
+    temp_drop_cols = [col for col in temp_df if ("PODIAG" in col or "CPT" in col)]
     no_codes_dict["24"] = temp_df.drop(temp_drop_cols, axis=1)
-    print(no_codes_dict["24"].shape)
-    assert len(data_dict_clean) == 17
+    data_dict_clean["24"] = temp_df
+    if verbose:
+        print(no_codes_dict["24"].shape)
+    else:
+        print(f"{len(no_codes_dict)}/{len(data_dict)}")
+    ###### ENSURE we did things right #####
+    try:
+        assert len(data_dict_clean) == len(data_dict)
+        assert len(data_dict_clean) == len(no_codes_dict)
+    except AssertionError:
+        print("Dicts do not match in size...")
+        print(f" New length w/ codes: {len(data_dict_clean)}")
+        print(f" New length w/o codes: {len(no_codes_dict)}")
+        print(f" OG length: {len(data_dict)}")
+        raise AssertionError
     for year1, df1 in no_codes_dict.items():
-        assert df1.shape[1] == 78
+        try:
+            assert df1.shape[1] == 79
+        except AssertionError:
+            raise AssertionError(f"Expected 79 rows, got {df1.shape[1]} instead")
         for year2, df2 in no_codes_dict.items():
             cols_1 = set(df1.columns)
             cols_2 = set(df2.columns)

@@ -108,6 +108,7 @@ def get_analysis_df(*_, df, outcome_data, outcome_name, outcome_sub_cols, fish_d
     """
     if _ != tuple():
         raise ValueError("This function does not accept positional arguments!")
+    ## Set func globals
     feature_dict = get_feature_lists(df)
     binary_cols = feature_dict["binary_cols"]
     numerical_cols = feature_dict["numerical_cols"]
@@ -115,6 +116,9 @@ def get_analysis_df(*_, df, outcome_data, outcome_name, outcome_sub_cols, fish_d
     ordinal_cols = feature_dict["ordinal_cols"]
     header_ORs = "Odds Ratios (95% CI)"
     header_p = "P-Value"
+    ## Make Year an ordinal variable instead of numerical
+    numerical_cols.remove("OPERYR")
+    ordinal_cols.append("OPERYR")
     ##Analysis (p-vals + ORs)
     result_list = []
     full_df = pd.concat([df, outcome_data], axis=1)
@@ -463,9 +467,18 @@ def generate_summary_table(
         If positional arguments are given
     """
     feature_dict = get_feature_lists(X_df_final)
+    ## Make Year an ordinal variable instead of numerical
+    num_cols = feature_dict["numerical_cols"]
+    ord_cols = feature_dict["ordinal_cols"]
+    num_cols.remove("OPERYR")
+    ord_cols.append("OPERYR")
+    feature_dict["numerical_cols"] = num_cols
+    feature_dict["ordinal_cols"] = ord_cols
+    ## Concat
     concat_df = pd.concat([X_df_final, outcome_data], axis=1)
-    og_concat = pd.concat([X_df_og, outcome_data], axis=1)
-    # df.drop(outcome_sub_cols[outcome_name], axis=1, inplace=True)
+    og_concat = pd.concat(
+        [X_df_og, outcome_data], axis=1
+    )  # This is used to get NA counts for numerical vars
     non_outcome_df = (
         concat_df[concat_df[outcome_name] == 0].drop(outcome_name, axis=1).copy()
     )
