@@ -1,5 +1,7 @@
 from src.config import BASE_PATH
 
+## even though this is not directly used, need it for joblib to unpickle correctly?
+from src.nn_models import load_nn_clf
 import pandas as pd
 import joblib as jb
 

@@ -18,15 +18,18 @@ def get_ohe_cols(df):
         col_split = col.split("_")
         if len(col_split) == 1 or col_split[0] in [
             "ETHNICITY",
-            "Partial Glossectomy (Hemiglossectomy",
-            "Composite",
-            "Local",
+            "PARTIAL GLOSSECTOMY (HEMIGLOSSECTOMY",
+            "COMPOSITE",
+            "LOCAL",
         ]:
             continue
-        col_name = col_split[0]
-        instance_name = "_".join(col_split[1:])
+        if col_split[:2] == ["RACE", "NEW"]:
+            col_name = "_".join(col_split[:2])
+            instance_name = "_".join(col_split[2:])
+        else:
+            col_name = col_split[0]
+            instance_name = "_".join(col_split[1:])
         if col_name in ohe_dict.keys():
-
             ohe_dict[col_name].append(instance_name)
         else:
             ohe_dict[col_name] = [instance_name]
@@ -145,7 +148,12 @@ def generate_MAV(shap_vals, feat_order, model_name, result_path=None):
     #     )
     # result_path.unlink()
     feat_names = shap_vals.feature_names
-    assert set(feat_names) == set(feat_order)
+    try:
+        assert set(feat_names) == set(feat_order)
+    except AssertionError:
+        print(set(feat_names) - set(feat_order))
+        print(set(feat_order) - set(feat_names))
+        raise AssertionError("Feature names and feature order do not match")
     shap_to_plot = get_vals_to_plot(shap_vals)
     shap_df = pd.DataFrame(shap_to_plot.values, columns=feat_names)
     absolute_mean_shap = shap_df.abs().mean().reset_index()

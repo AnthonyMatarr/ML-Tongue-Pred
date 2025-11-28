@@ -445,7 +445,7 @@ def evaluate_models(
         ## log-scale ##
         bin_thresholds = get_logspace_thresholds(train_val_probs, n_bins=n_bins)
         ################
-        if results_path:
+        if results_path and model_name == "stack":
             bins_path = BASE_PATH / "app" / "bin_thresholds" / f"{outcome_name}.npz"
             if bins_path.exists():
                 print(f"Over-writing bin data at path {bins_path}")
@@ -479,7 +479,7 @@ def evaluate_models(
         ################################### All predictions (for interface) #############################################
         #################################################################################################################
         ## ONLY compute if export is desired
-        if results_path:
+        if results_path and model_name == "stack":
             # file path
             all_pred_path = BASE_PATH / "app" / "all_preds" / f"{outcome_name}.parquet"
             if all_pred_path.exists():

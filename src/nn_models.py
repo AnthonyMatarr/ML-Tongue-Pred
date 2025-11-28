@@ -171,6 +171,9 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
 
         self.model_ = model
         self.classes_ = np.unique(y)  # Needed for sklearn ClassifierMixin
+        ## Reset
+        self._fit_X = None
+        self._fit_y = None
         return self
 
     def predict_proba(self, X):
