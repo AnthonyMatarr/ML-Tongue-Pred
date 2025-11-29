@@ -17,7 +17,8 @@ from src.preprocess import remove_prefix
 OUTCOMES = {
     "Aspiration-related Complications": "asp",
     "Bleeding Transfusion": "bleed",
-    # "Death": "mort", #binning is so bad for this, would be detrimental to include
+    "Unplanned Reoperation": "reop",
+    "Death": "mort",  # binning is so bad for this, would be detrimental to include
     "Surgical Complications": "surg",
 }
 
@@ -27,10 +28,6 @@ OUTCOMES = {
 def load_model_pipeline(outcome_name):
     """Load model and preprocessor for a specific outcome."""
     model_path = BASE_PATH / "app" / "models" / f"{outcome_name}_stack.joblib"
-    # # force CPU during load
-    # with torch.device("cpu"):
-    #     # Use stack model
-    # model = joblib.load(model_path)
     model = joblib.load(model_path)
     preprocessor = joblib.load(
         BASE_PATH / "app" / "preprocessors" / f"{outcome_name}_pipeline.joblib"
@@ -76,64 +73,83 @@ def main():
     with col1:
         st.subheader("Demographics")
         sex = st.selectbox("Sex", ["Male", "Female"], index=0)  # --> 1/0
-
         # ================== Dynamic Weight ===================
-        # Store the previous unit in session state
-        if "prev_weight_unit" not in st.session_state:
-            st.session_state.prev_weight_unit = "kg"
-        if "weight_kg" not in st.session_state:
-            st.session_state.weight_kg = 77.11
-        if "weight_lbs" not in st.session_state:
-            st.session_state.weight_lbs = 170.0
-
-        weight_unit = st.radio("Weight unit", ["lbs", "kg"], index=1, key="weight_unit")
-
-        # Detect if the unit changed
-        if weight_unit != st.session_state.prev_weight_unit:
-            if weight_unit == "lbs":
-                # KG -> LBS
-                st.session_state.weight_lbs = st.session_state.weight_kg * 2.20462
-            else:
-                # LBS -> KG
-                st.session_state.weight_kg = st.session_state.weight_lbs / 2.20462
-            st.session_state.prev_weight_unit = weight_unit  # Update the tracker
-
-        # Render input
-        if weight_unit == "lbs":
-            weight = st.number_input("Weight (lbs)", min_value=0.0, key="weight_lbs")
+        weight_unknown = st.checkbox("Weight is unknown")
+        if weight_unknown:
+            weight = None
         else:
-            weight_kg = st.number_input("Weight (kg)", min_value=0.0, key="weight_kg")
-            weight = weight_kg * 2.20462
+            # Store the previous unit in session state
+            if "prev_weight_unit" not in st.session_state:
+                st.session_state.prev_weight_unit = "kg"
+            if "weight_kg" not in st.session_state:
+                st.session_state.weight_kg = 77.11
+            if "weight_lbs" not in st.session_state:
+                st.session_state.weight_lbs = 170.0
+
+            weight_unit = st.radio(
+                "Weight unit", ["lbs", "kg"], index=1, key="weight_unit"
+            )
+
+            # Detect if the unit changed
+            if weight_unit != st.session_state.prev_weight_unit:
+                if weight_unit == "lbs":
+                    # KG -> LBS
+                    st.session_state.weight_lbs = st.session_state.weight_kg * 2.20462
+                else:
+                    # LBS -> KG
+                    st.session_state.weight_kg = st.session_state.weight_lbs / 2.20462
+                st.session_state.prev_weight_unit = weight_unit  # Update the tracker
+
+            # Render input
+            if weight_unit == "lbs":
+                weight = st.number_input(
+                    "Weight (lbs)", min_value=0.0, key="weight_lbs"
+                )
+            else:
+                weight_kg = st.number_input(
+                    "Weight (kg)", min_value=0.0, key="weight_kg"
+                )
+                weight = weight_kg * 2.20462
 
         # ================== Dynamic Height ===================
-        # Store the previous unit in session state
-        if "prev_height_unit" not in st.session_state:
-            st.session_state.prev_height_unit = "m"
-        if "height_m" not in st.session_state:
-            st.session_state.height_m = 1.68
-        if "height_in" not in st.session_state:
-            st.session_state.height_in = 66.0
-
-        height_unit = st.radio("Height unit", ["in", "m"], index=1, key="height_unit")
-
-        # Detect if the unit changed
-        if height_unit != st.session_state.prev_height_unit:
-            if height_unit == "in":
-                # Meters -> Inches
-                st.session_state.height_in = st.session_state.height_m * 39.3701
-            else:
-                # Inches -> Meters
-                st.session_state.height_m = st.session_state.height_in / 39.3701
-            st.session_state.prev_height_unit = height_unit  # Update the tracker
-
-        # Render input
-        if height_unit == "in":
-            height = st.number_input("Height (in)", min_value=0.0, key="height_in")
+        height_unknown = st.checkbox("Height is unknown")
+        if height_unknown:
+            height = None
         else:
-            height_m = st.number_input("Height (m)", min_value=0.0, key="height_m")
-            height = height_m * 39.3701
+            # Store the previous unit in session state
+            if "prev_height_unit" not in st.session_state:
+                st.session_state.prev_height_unit = "m"
+            if "height_m" not in st.session_state:
+                st.session_state.height_m = 1.68
+            if "height_in" not in st.session_state:
+                st.session_state.height_in = 66.0
+
+            height_unit = st.radio(
+                "Height unit", ["in", "m"], index=1, key="height_unit"
+            )
+
+            # Detect if the unit changed
+            if height_unit != st.session_state.prev_height_unit:
+                if height_unit == "in":
+                    # Meters -> Inches
+                    st.session_state.height_in = st.session_state.height_m * 39.3701
+                else:
+                    # Inches -> Meters
+                    st.session_state.height_m = st.session_state.height_in / 39.3701
+                st.session_state.prev_height_unit = height_unit  # Update the tracker
+
+            # Render input
+            if height_unit == "in":
+                height = st.number_input("Height (in)", min_value=0.0, key="height_in")
+            else:
+                height_m = st.number_input("Height (m)", min_value=0.0, key="height_m")
+                height = height_m * 39.3701
         # ================== Others ===================
-        age = st.number_input("Age", min_value=1, max_value=90, value=63)
+        age_unknown = st.checkbox("Age is unknown")
+        if age_unknown:
+            age = None
+        else:
+            age = st.number_input("Age", min_value=1, max_value=90, value=63)
 
         hispanic = st.selectbox(
             "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"], index=1  # --> 1/0
@@ -148,47 +164,77 @@ def main():
             ],
             index=0,
         )
+        operyr = st.number_input("Age", min_value=2008, max_value=2024, value=2018)
     # ================== Pre-Op ===================
     with col2:
         st.subheader("Pre-Operative Characteristics")
         diabetes = st.selectbox("Diabetes", ["Yes", "No"], index=1)
         smoke = st.selectbox("Current Smoker", ["Yes", "No"], index=1)
-        dyspnea = st.selectbox(
-            "Dyspnea", ["Yes", "No", "Unknown/Other"], index=2
-        )  # Unknown_Other
+        dyspnea = st.selectbox("Dyspnea", ["Yes", "No", "Unknown"], index=2)
         vent = st.selectbox("Ventilator >48 Hours", ["Yes", "No"], index=1)
         hxcopd = st.selectbox("COPD", ["Yes", "No"], index=1)
         ascites = st.selectbox("Ascites", ["Yes", "No"])
         hxchf = st.selectbox("Congestive Heart Failure", ["Yes", "No"], index=1)
         hypermed = st.selectbox("Hypertension", ["Yes", "No"], index=1)
-        renal_failure = st.selectbox("Acute Renal Failure", ["Yes", "No"], index=1)
+        renal_failure = st.selectbox(
+            "Acute Renal Failure", ["Yes", "No", "Unknown"], index=1
+        )
         dialysis = st.selectbox("Dialysis", ["Yes", "No"], index=1)
         discancr = st.selectbox("Disseminated Cancer", ["Yes", "No"], index=1)
         wndinf = st.selectbox("Wound Infection", ["Yes", "No", "Unknown"], index=2)
         steroid = st.selectbox("Corticosteroid Use", ["Yes", "No"], index=1)
         wtloss = st.selectbox(
             f"Weight Loss (>10% body weight loss in last 6 months)",
-            ["Yes", "No", "Unknown/Other"],
+            ["Yes", "No", "Unknown"],
             index=2,  # --> Unknown_Other
         )
         bleed = st.selectbox("Bleeding Disorder", ["Yes", "No"], index=1)
         transfus = st.selectbox("Blood Transfusion", ["Yes", "No"], index=1)
         prsepis = st.selectbox("Sepsis", ["Yes", "No"], index=1)
         ## Albumin
-        pralbumin = st.number_input(
-            "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
-        )
+        alb_unknown = st.checkbox("Albumin is unknown")
+        if alb_unknown:
+            pralbumin = None
+        else:
+            pralbumin = st.number_input(
+                "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
+            )
 
         ## WBC
-        prwbc = st.number_input(
-            "White Blood Cell Count (*10^9/L)",
-            min_value=0.0,
-            max_value=None,
-            value=7.0,
-        )
-
+        wbc_unknown = st.checkbox("White Blood Cell Count is unknown")
+        if wbc_unknown:
+            prwbc = None
+        else:
+            prwbc = st.number_input(
+                "White Blood Cell Count (*10^9/L)",
+                min_value=0.0,
+                max_value=None,
+                value=7.0,
+            )
+        ## HCT
+        hct_unknown = st.checkbox("HCT is unknown")
+        if hct_unknown:
+            prhct = None
+        else:
+            prhct = st.number_input(
+                "HCT something",
+                min_value=0.0,
+                max_value=None,
+                value=41.0,
+            )
+        ## PLATE
+        plate_unknown = st.checkbox("Plate is unknown")
+        if plate_unknown:
+            prplate = None
+        else:
+            prplate = st.number_input(
+                "Platelette count",
+                min_value=0.0,
+                max_value=None,
+                value=238.0,
+            )
         func_stat = st.selectbox(
-            "Functional Status", ["Independent", "Dependent"], index=0
+            "Functional Status", ["Independent", "Dependent", "Unknown"], index=0
         )  # --> 1/0
     # ================== Intra-Op ===================
     with col3:
@@ -201,13 +247,14 @@ def main():
                 "Border",  # --> Malignant neoplasm of border of tongue
                 "Junctional Zone",  # --> Malignant neoplasm of junctional zone of tongue
                 "Surface",  # --> Malignant neoplasm of surface of tongue
-                "Unspecified",  # --> Malignant neoplasm of surface of tongue
+                "Lingual Tonsil",  # --> Malignant neoplasm of lingual tonsil
+                "Unspecified",  # --> Malignant neoplasm of tongue unspecified
             ],
             index=5,
         )
         inout = st.selectbox("Setting", ["Inpatient", "Outpatient"], index=0)  # --> 1/0
         elect_surg = st.selectbox(
-            "Case Type",
+            "URGENCY",
             [
                 "Elective",  # --> Elective
                 "Urgent/Emergent",  # --> Urgent_Emergent
@@ -285,6 +332,7 @@ def main():
             "Age": [age],
             "ETHNICITY_HISPANIC": [util.transform_hispanic(hispanic)],
             "RACE_NEW": [util.transform_unknown_other(race)],
+            "OPERYR": [operyr],
             ## Col 2
             "Malignant neoplasm": [util.transform_tumor_site(mal_neoplasm)],
             "DIABETES": [util.transform_yes_no(diabetes)],
@@ -295,10 +343,10 @@ def main():
             "ASCITES": [util.transform_yes_no(ascites)],
             "HXCHF": [util.transform_yes_no(hxchf)],
             "HYPERMED": [util.transform_yes_no(hypermed)],
-            "RENAFAIL": [util.transform_yes_no(renal_failure)],
+            "RENAFAIL": [util.transform_unknown_other(renal_failure)],
             "DIALYSIS": [util.transform_yes_no(dialysis)],
             "DISCANCR": [util.transform_yes_no(discancr)],
-            "WNDINF": [wndinf],
+            "WNDINF": [util.transform_unknown_other(wndinf)],
             "STEROID": [util.transform_yes_no(steroid)],
             "WTLOSS": [util.transform_unknown_other(wtloss)],
             "BLEEDDIS": [util.transform_yes_no(bleed)],
@@ -306,10 +354,12 @@ def main():
             "PRSEPIS": [util.transform_yes_no(prsepis)],
             "PRALBUM": [pralbumin],
             "PRWBC": [prwbc],
-            "FNSTATUS2": [util.transform_func_status(func_stat)],
+            "PRHCT": [prhct],
+            "PRPLATE": [prplate],
+            "FNSTATUS2": [util.transform_unknown_other(func_stat)],
             ## Col 3
             "INOUT": [util.transform_inout(inout)],
-            "ELECTSURG": [util.transform_casetype(elect_surg)],
+            "URGENCY": [util.transform_casetype(elect_surg)],
             "ASACLAS": [util.transform_ASA(asa_class)],
             "OPTIME": [optime],
             ## Col 4
@@ -359,7 +409,7 @@ def main():
             ],
         }
     )
-
+    input_data.columns = input_data.columns.str.upper()
     #################################################################################################################
     ############################################### Output Section ##################################################
     #################################################################################################################

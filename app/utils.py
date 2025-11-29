@@ -64,8 +64,8 @@ def transform_hispanic(input_val):
 
 
 def transform_unknown_other(input_val):
-    if input_val == "Unknown/Other":
-        return "Unknown_Other"
+    if "UNKNOWN" in input_val.upper():
+        return "otherUnknown"
     else:
         return input_val
 
@@ -82,21 +82,12 @@ def transform_tumor_site(input_val):
             return "Malignant neoplasm of junctional zone of tongue"
         case "Surface":
             return "Malignant neoplasm of surface of tongue"
+        case "Lingual Tonsil":
+            return "Malignant neoplasm of lingual tonsil"
         case "Unspecified":
             return "Malignant neoplasm of tongue unspecified"
         case _:
             raise ValueError(f"Invalid input: {input_val}.")
-
-
-def transform_func_status(input_val):
-    if input_val == "Independent":
-        return 1
-    elif input_val == "Dependent":
-        return 0
-    else:
-        raise ValueError(
-            f"Invalid input: {input_val}. Expected 'Independent' or 'Dependent'"
-        )
 
 
 def transform_inout(input_val):
@@ -112,9 +103,9 @@ def transform_inout(input_val):
 
 def transform_casetype(input_val):
     if input_val == "Urgent/Emergent":
-        return "Urgent_Emergent"
-    elif input_val in ["Unknown", "Elective"]:
-        return input_val
+        return 1
+    elif input_val in ["Elective"]:
+        return 0
     else:
         raise ValueError(
             f"Invalid input: {input_val}. Expected 'Urgent/Emergent', 'Elective', or 'Unknown'"
@@ -129,7 +120,7 @@ def transform_ASA(input_val):
             return "2-Mild Disturb"
         case "3-Severe Disturbance":
             return "3-Severe Disturb"
-        case "4-Life Threatening Disturbance":
-            return "4-Life Threat"
+        case "4-Life Threatening Disturbance/5-Moribund":
+            return "4/5-Life Threat/Moribund"
         case _:
             raise ValueError(f"Invalid input: {input_val}")
