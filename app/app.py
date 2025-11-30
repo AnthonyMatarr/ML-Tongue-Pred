@@ -68,7 +68,7 @@ def main():
     #################################################################################################################
     st.header("Patient Information")
 
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     # ================== Demographics ===================
     with col1:
         st.subheader("Demographics")
@@ -149,7 +149,7 @@ def main():
         if age_unknown:
             age = None
         else:
-            age = st.number_input("Age", min_value=1, max_value=90, value=63)
+            age = st.number_input("Age", min_value=18, max_value=90, value=63)
 
         hispanic = st.selectbox(
             "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"], index=1  # --> 1/0
@@ -164,10 +164,9 @@ def main():
             ],
             index=0,
         )
-        operyr = st.number_input("Age", min_value=2008, max_value=2024, value=2018)
     # ================== Pre-Op ===================
     with col2:
-        st.subheader("Pre-Operative Characteristics")
+        st.subheader("Pre-Operative Health Status")
         diabetes = st.selectbox("Diabetes", ["Yes", "No"], index=1)
         smoke = st.selectbox("Current Smoker", ["Yes", "No"], index=1)
         dyspnea = st.selectbox("Dyspnea", ["Yes", "No", "Unknown"], index=2)
@@ -177,20 +176,32 @@ def main():
         hxchf = st.selectbox("Congestive Heart Failure", ["Yes", "No"], index=1)
         hypermed = st.selectbox("Hypertension", ["Yes", "No"], index=1)
         renal_failure = st.selectbox(
-            "Acute Renal Failure", ["Yes", "No", "Unknown"], index=1
+            "Acute Renal Failure", ["Yes", "No", "Unknown"], index=2
         )
         dialysis = st.selectbox("Dialysis", ["Yes", "No"], index=1)
         discancr = st.selectbox("Disseminated Cancer", ["Yes", "No"], index=1)
         wndinf = st.selectbox("Wound Infection", ["Yes", "No", "Unknown"], index=2)
         steroid = st.selectbox("Corticosteroid Use", ["Yes", "No"], index=1)
-        wtloss = st.selectbox(
-            f"Weight Loss (>10% body weight loss in last 6 months)",
-            ["Yes", "No", "Unknown"],
-            index=2,  # --> Unknown_Other
-        )
+        wtloss = st.selectbox(f"Weight Loss", ["Yes", "No", "Unknown"], index=2)
         bleed = st.selectbox("Bleeding Disorder", ["Yes", "No"], index=1)
         transfus = st.selectbox("Blood Transfusion", ["Yes", "No"], index=1)
         prsepis = st.selectbox("Sepsis", ["Yes", "No"], index=1)
+        func_stat = st.selectbox(
+            "Functional Status", ["Independent", "Dependent", "Unknown"], index=0
+        )  # --> 1/0
+        asa_class = st.selectbox(
+            "ASA Class",
+            [
+                "1-No Disturbance",  # --> 1-No Disturb
+                "2-Mild Disturbance",  # --> 2-Mild Disturb
+                "3-Severe Disturbance",  # --> 3-Severe Disturb
+                "4-Life Threatening Disturbance",  # --> 4-Life Threat
+            ],
+            index=2,
+        )
+    # ================== Blood ===================
+    with col3:
+        st.subheader("Pre-Operative Blood Labs")
         ## Albumin
         alb_unknown = st.checkbox("Albumin is unknown")
         if alb_unknown:
@@ -212,33 +223,33 @@ def main():
                 value=7.0,
             )
         ## HCT
-        hct_unknown = st.checkbox("HCT is unknown")
+        hct_unknown = st.checkbox("Hematocrit is unknown")
         if hct_unknown:
             prhct = None
         else:
             prhct = st.number_input(
-                "HCT something",
+                "Hematocrit (%)",
                 min_value=0.0,
-                max_value=None,
+                max_value=100.0,
                 value=41.0,
             )
         ## PLATE
-        plate_unknown = st.checkbox("Plate is unknown")
+        plate_unknown = st.checkbox("Platelet Count is unknown")
         if plate_unknown:
             prplate = None
         else:
             prplate = st.number_input(
-                "Platelette count",
+                "Platelet Count (*10^9/L)",
                 min_value=0.0,
                 max_value=None,
                 value=238.0,
             )
-        func_stat = st.selectbox(
-            "Functional Status", ["Independent", "Dependent", "Unknown"], index=0
-        )  # --> 1/0
     # ================== Intra-Op ===================
-    with col3:
+    with col4:
         st.subheader("Intra-Operative Characteristics")
+        operyr = st.number_input(
+            "Operation Year", min_value=2008, max_value=2025, value=2018
+        )
         mal_neoplasm = st.selectbox(
             "Location of Tongue Tumor",
             [
@@ -262,16 +273,6 @@ def main():
             ],
             index=1,
         )
-        asa_class = st.selectbox(
-            "ASA Class",
-            [
-                "1-No Disturbance",  # --> 1-No Disturb
-                "2-Mild Disturbance",  # --> 2-Mild Disturb
-                "3-Severe Disturbance",  # --> 3-Severe Disturb
-                "4-Life Threatening Disturbance",  # --> 4-Life Threat
-            ],
-            index=2,
-        )
         ##Op-time
         optime_unknown = st.checkbox("Operation Time is unknown")
         if optime_unknown:
@@ -281,7 +282,7 @@ def main():
                 "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
             )
     # ================== Proc ===================
-    with col4:
+    with col5:
         st.subheader("Head and Neck Procedures")
         part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"], index=1)
         comp_ext_gloss = st.selectbox(
@@ -290,7 +291,7 @@ def main():
         total_gloss = st.selectbox("Total Glossectomy", ["Yes", "No"], index=1)
         tongue_exc = st.selectbox("Excision of Tongue Lesions", ["Yes", "No"], index=1)
         oral_cav_recon = st.selectbox(
-            "Local/Regional Tissue Flaps for Oral Cavity Reconstruction",
+            "Local/Regional Tissue Flaps",
             ["Yes", "No"],
             index=1,
         )
@@ -298,18 +299,14 @@ def main():
             "Free Tissue Transfer", ["Yes", "No"], index=1
         )
         skin_auto = st.selectbox("Skin Autograft", ["Yes", "No"], index=1)
-        neck_diss = st.selectbox(
-            "Neck Dissection and Lymphadenectomy Procedure", ["Yes", "No"], index=1
-        )
+        neck_diss = st.selectbox("Lymphadenectomy Procedure", ["Yes", "No"], index=1)
         alv_ridge = st.selectbox(
             "Alveolar Ridge and Gingival Procedure", ["Yes", "No"], index=1
         )
         mand_res = st.selectbox(
-            "Mandibular Resection and Reconstruction Procedure", ["Yes", "No"], index=1
+            "Mandibular Resection/Reconstruction", ["Yes", "No"], index=1
         )
-        peri_nerve = st.selectbox(
-            "Peripheral Nerve Repair and Neuroplasty", ["Yes", "No"], index=1
-        )
+        peri_nerve = st.selectbox("Peripheral Nerve Repair", ["Yes", "No"], index=1)
         trach_proc = st.selectbox("Tracheostomy Procedure", ["Yes", "No"], index=1)
         gast_eso_proc = st.selectbox(
             "Gastrostomy and Esophageal Access Procedure", ["Yes", "No"], index=1
@@ -317,10 +314,10 @@ def main():
         sub_gland = st.selectbox("Submandibular Gland Excision", ["Yes", "No"], index=1)
         parotid = st.selectbox("Parotid Gland Excision", ["Yes", "No"], index=1)
         laryngeal = st.selectbox(
-            "Laryngeal Resection and Reconstruction Procedure", ["Yes", "No"], index=1
+            "Laryngeal Resection/Reconstruction", ["Yes", "No"], index=1
         )
         pharyngeal = st.selectbox(
-            "Pharyngeal Resection and Reconstruction Procedure", ["Yes", "No"], index=1
+            "Pharyngeal Resection/Reconstruction", ["Yes", "No"], index=1
         )
         tonsil = st.selectbox(
             "Tonsillectomy and Tonsillar Region Procedure", ["Yes", "No"], index=1
@@ -447,12 +444,12 @@ def main():
         },
         "PRHCT": {
             "Value": prhct,
-            "Display Name": "HCT",
+            "Display Name": "Platelet Count (*10^9/L)",
             "round rule": lambda x: round(x, 2),
         },
         "PRPLATE": {
             "Value": prplate,
-            "Display Name": "Plate",
+            "Display Name": "Hematocrit (%)",
             "round rule": lambda x: round(x, 2),
         },
         # this shouldnt run, dont give option
