@@ -9,3 +9,4 @@ models/
 .vscode
 cal_models/
 src/config.py
+notebooks/02_EDA.ipynb

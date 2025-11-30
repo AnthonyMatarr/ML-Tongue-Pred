@@ -18,7 +18,7 @@ OUTCOMES = {
     "Aspiration-related Complications": "asp",
     "Bleeding Transfusion": "bleed",
     "Unplanned Reoperation": "reop",
-    "Death": "mort",  # binning is so bad for this, would be detrimental to include
+    # "Death": "mort",  # binning is so bad for this, would be detrimental to include
     "Surgical Complications": "surg",
 }
 
@@ -254,7 +254,7 @@ def main():
         )
         inout = st.selectbox("Setting", ["Inpatient", "Outpatient"], index=0)  # --> 1/0
         elect_surg = st.selectbox(
-            "URGENCY",
+            "Case Type",
             [
                 "Elective",  # --> Elective
                 "Urgent/Emergent",  # --> Urgent_Emergent
@@ -273,9 +273,13 @@ def main():
             index=2,
         )
         ##Op-time
-        optime = st.number_input(
-            "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
-        )
+        optime_unknown = st.checkbox("Operation Time is unknown")
+        if optime_unknown:
+            optime = None
+        else:
+            optime = st.number_input(
+                "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
+            )
     # ================== Proc ===================
     with col4:
         st.subheader("Head and Neck Procedures")
@@ -413,6 +417,62 @@ def main():
     #################################################################################################################
     ############################################### Output Section ##################################################
     #################################################################################################################
+    ## Maps column name to unknown
+    ### This order is hard-coded and matches order passed into imputer
+    num_dict = {
+        "AGE": {
+            "Value": age,
+            "Display Name": "Age",
+            "round rule": lambda x: int(round(x)),
+        },
+        "HEIGHT": {
+            "Value": weight,
+            "Display Name": "Height (in)",
+            "round rule": lambda x: round(x, 2),
+        },
+        "WEIGHT": {
+            "Value": height,
+            "Display Name": "Weight (lbs)",
+            "round rule": lambda x: round(x, 2),
+        },
+        "PRALBUM": {
+            "Value": pralbumin,
+            "Display Name": "Albumin (g/dL)",
+            "round rule": lambda x: round(x, 2),
+        },
+        "PRWBC": {
+            "Value": prwbc,
+            "Display Name": "White Blood Cell Count (*10^9/L)",
+            "round rule": lambda x: round(x, 2),
+        },
+        "PRHCT": {
+            "Value": prhct,
+            "Display Name": "HCT",
+            "round rule": lambda x: round(x, 2),
+        },
+        "PRPLATE": {
+            "Value": prplate,
+            "Display Name": "Plate",
+            "round rule": lambda x: round(x, 2),
+        },
+        # this shouldnt run, dont give option
+        ## just including for completeness
+        "OPERYR": {
+            "Value": operyr,
+            "Display Name": "Operation Year",
+            "round rule": lambda x: int(round(x)),
+        },
+        "OPTIME": {
+            "Value": optime,
+            "Display Name": "Operation Time (min)",
+            "round rule": lambda x: round(x, 2),
+        },
+    }
+
+    # Get list of imputed vals
+    imp_cols = [
+        col_name for col_name, sub_dict in num_dict.items() if sub_dict["Value"] is None
+    ]
     if st.button("Predict Outcomes", type="primary", key="pred_btn"):
         st.header("Prediction Results")
 
@@ -515,6 +575,41 @@ def main():
 
                 except Exception as e:
                     st.error(f"Error predicting {display_name}: {str(e)}")
+        # Display input summary
+
+        if len(imp_cols) > 0:
+            st.header("Imputed Values")
+            for display_name, folder_name in selected_outcomes:
+                _, preprocessor = load_model_pipeline(folder_name)
+                with st.expander(f"📋 Imputed Values for {display_name}"):
+                    ## Get pipeline steps
+                    num_pipe = preprocessor.named_transformers_["num"]
+                    imputer = num_pipe.named_steps["imputer"]
+                    bmi_step = num_pipe.named_steps["bmi"]
+                    scaler = num_pipe.named_steps["scaler"]
+                    ## Get intermediate values
+                    X_num_raw = input_data[num_dict.keys()].to_numpy()
+                    X_imputed = imputer.transform(X_num_raw)
+                    all_X_bmi_unscaled = bmi_step.transform(X_imputed)
+                    bmi_unscaled = all_X_bmi_unscaled[:, -1]
+                    # Build a small df for display
+                    imp_display = {}
+                    for col in imp_cols:
+                        ## Find index amongst num cols
+                        col_idx = 0
+                        for col_name, sub_dict in num_dict.items():
+                            if col == col_name:
+                                break
+                            else:
+                                col_idx += 1
+                        raw_val = X_imputed[0, col_idx]
+                        round_rule = num_dict[col]["round rule"]
+                        imp_display[num_dict[col]["Display Name"]] = round_rule(raw_val)
+
+                    display_df = pd.DataFrame.from_dict(
+                        imp_display, orient="index", columns=["Value"]
+                    )
+                    st.dataframe(display_df, use_container_width=False, width=400)
 
 
 if __name__ == "__main__":
