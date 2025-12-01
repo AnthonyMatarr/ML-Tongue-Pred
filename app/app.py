@@ -67,30 +67,42 @@ def main():
     ################################################# Input Section #################################################
     #################################################################################################################
     st.header("Patient Information")
-
+    # Row 1: Subheaders only
+    header_cols = st.columns(5)
+    header_cols[0].subheader("Demographics")
+    header_cols[1].subheader("Pre-Operative Health Status")
+    header_cols[2].subheader("Pre-Operative Blood Labs")
+    header_cols[3].subheader("Intra-Operative Characteristics")
+    header_cols[4].subheader("Head and Neck Procedures")
     col1, col2, col3, col4, col5 = st.columns(5)
     # ================== Demographics ===================
     with col1:
-        st.subheader("Demographics")
         sex = st.selectbox("Sex", ["Male", "Female"], index=0)  # --> 1/0
         # ================== Dynamic Weight ===================
-        weight_unknown = st.checkbox("Weight is unknown")
-        if weight_unknown:
-            weight = None
-        else:
-            # Store the previous unit in session state
-            if "prev_weight_unit" not in st.session_state:
-                st.session_state.prev_weight_unit = "kg"
-            if "weight_kg" not in st.session_state:
-                st.session_state.weight_kg = 77.11
-            if "weight_lbs" not in st.session_state:
-                st.session_state.weight_lbs = 170.0
+        # Initialize session state
+        if "prev_weight_unit" not in st.session_state:
+            st.session_state.prev_weight_unit = "kg"
+        if "weight_kg" not in st.session_state:
+            st.session_state.weight_kg = 77.11
+        if "weight_lbs" not in st.session_state:
+            st.session_state.weight_lbs = 170.0
+        # Nested columns: input on left, checkbox on right
+        input_col, check_col = st.columns([3, 2])
 
+        with check_col:
+            st.write("")  # Spacer to align with input
+            st.write("")  # Spacer to align with input
+            weight_unknown = st.checkbox("Unknown", key="weight_unknown")
+        # Unit selector below both
+        if not weight_unknown:
             weight_unit = st.radio(
-                "Weight unit", ["lbs", "kg"], index=1, key="weight_unit"
+                "Weight unit",
+                ["lbs", "kg"],
+                index=1,
+                key="weight_unit",
+                horizontal=True,
             )
-
-            # Detect if the unit changed
+            # Detect if the unit changed and convert b4 rendering inputs
             if weight_unit != st.session_state.prev_weight_unit:
                 if weight_unit == "lbs":
                     # KG -> LBS
@@ -98,37 +110,51 @@ def main():
                 else:
                     # LBS -> KG
                     st.session_state.weight_kg = st.session_state.weight_lbs / 2.20462
-                st.session_state.prev_weight_unit = weight_unit  # Update the tracker
-
-            # Render input
-            if weight_unit == "lbs":
-                weight = st.number_input(
-                    "Weight (lbs)", min_value=0.0, key="weight_lbs"
-                )
+                st.session_state.prev_weight_unit = weight_unit
+        ## Render input box
+        with input_col:
+            if weight_unknown:
+                st.number_input("Weight", value=0.0, disabled=True)
+                weight = None
             else:
-                weight_kg = st.number_input(
-                    "Weight (kg)", min_value=0.0, key="weight_kg"
-                )
-                weight = weight_kg * 2.20462
+                weight_unit = st.session_state.get("weight_unit", "kg")
+                if weight_unit == "lbs":
+                    weight = st.number_input(
+                        "Weight (lbs)", min_value=2.20462, key="weight_lbs"
+                    )
+                else:
+                    weight_kg = st.number_input(
+                        "Weight (kg)", min_value=1.0, key="weight_kg"
+                    )
+                    weight = weight_kg * 2.20462
 
         # ================== Dynamic Height ===================
-        height_unknown = st.checkbox("Height is unknown")
-        if height_unknown:
-            height = None
-        else:
-            # Store the previous unit in session state
-            if "prev_height_unit" not in st.session_state:
-                st.session_state.prev_height_unit = "m"
-            if "height_m" not in st.session_state:
-                st.session_state.height_m = 1.68
-            if "height_in" not in st.session_state:
-                st.session_state.height_in = 66.0
+        # Initialize session state
+        if "prev_height_unit" not in st.session_state:
+            st.session_state.prev_height_unit = "m"
+        if "height_m" not in st.session_state:
+            st.session_state.height_m = 1.68
+        if "height_in" not in st.session_state:
+            st.session_state.height_in = 66.0
 
+        # Nested columns: input on left, checkbox on right
+        height_input_col, height_check_col = st.columns([3, 2])
+
+        with height_check_col:
+            st.write("")  # Spacer to align with input
+            st.write("")  # Spacer to align with input
+            height_unknown = st.checkbox("Unknown", key="height_unknown")
+
+        # Unit selector below both
+        if not height_unknown:
             height_unit = st.radio(
-                "Height unit", ["in", "m"], index=1, key="height_unit"
+                "Height unit",
+                ["in", "m"],
+                index=1,
+                key="height_unit",
+                horizontal=True,
             )
-
-            # Detect if the unit changed
+            # Detect if the unit changed and convert b4 rendering inputs
             if height_unit != st.session_state.prev_height_unit:
                 if height_unit == "in":
                     # Meters -> Inches
@@ -136,20 +162,39 @@ def main():
                 else:
                     # Inches -> Meters
                     st.session_state.height_m = st.session_state.height_in / 39.3701
-                st.session_state.prev_height_unit = height_unit  # Update the tracker
+                st.session_state.prev_height_unit = height_unit
 
-            # Render input
-            if height_unit == "in":
-                height = st.number_input("Height (in)", min_value=0.0, key="height_in")
+        ## Render input box
+        with height_input_col:
+            if height_unknown:
+                st.number_input("Height", value=0.0, disabled=True)
+                height = None
             else:
-                height_m = st.number_input("Height (m)", min_value=0.0, key="height_m")
-                height = height_m * 39.3701
+                height_unit = st.session_state.get("height_unit", "m")
+                if height_unit == "in":
+                    height = st.number_input(
+                        "Height (in)", min_value=39.3701, key="height_in"
+                    )
+                else:
+                    height_m = st.number_input(
+                        "Height (m)", min_value=1.0, key="height_m"
+                    )
+                    height = height_m * 39.3701
+
         # ================== Others ===================
-        age_unknown = st.checkbox("Age is unknown")
-        if age_unknown:
-            age = None
-        else:
-            age = st.number_input("Age", min_value=18, max_value=90, value=63)
+        ## AGE
+        # Nested columns: input on left, checkbox on right
+        age_input_col, age_check_col = st.columns([3, 2])
+        with age_check_col:
+            st.write("")  # Spacer to align with input
+            st.write("")  # Spacer to align with input
+            age_unknown = st.checkbox("Unknown", key="age_unknown")
+        with age_input_col:
+            if age_unknown:
+                st.number_input("Age", value=0.0, disabled=True)
+                age = None
+            else:
+                age = st.number_input("Age", min_value=18, max_value=90, value=63)
 
         hispanic = st.selectbox(
             "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"], index=1  # --> 1/0
@@ -166,7 +211,6 @@ def main():
         )
     # ================== Pre-Op ===================
     with col2:
-        st.subheader("Pre-Operative Health Status")
         diabetes = st.selectbox("Diabetes", ["Yes", "No"], index=1)
         smoke = st.selectbox("Current Smoker", ["Yes", "No"], index=1)
         dyspnea = st.selectbox("Dyspnea", ["Yes", "No", "Unknown"], index=2)
@@ -195,58 +239,93 @@ def main():
                 "1-No Disturbance",  # --> 1-No Disturb
                 "2-Mild Disturbance",  # --> 2-Mild Disturb
                 "3-Severe Disturbance",  # --> 3-Severe Disturb
-                "4-Life Threatening Disturbance",  # --> 4-Life Threat
+                "4-Life Threatening Disturbance/5-Moribund",  # --> 4-Life Threat
             ],
             index=2,
         )
     # ================== Blood ===================
     with col3:
-        st.subheader("Pre-Operative Blood Labs")
-        ## Albumin
-        alb_unknown = st.checkbox("Albumin is unknown")
-        if alb_unknown:
-            pralbumin = None
-        else:
-            pralbumin = st.number_input(
-                "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
-            )
+        # Albumin
+        alb_input_col, alb_check_col = st.columns([3, 2])
 
-        ## WBC
-        wbc_unknown = st.checkbox("White Blood Cell Count is unknown")
-        if wbc_unknown:
-            prwbc = None
-        else:
-            prwbc = st.number_input(
-                "White Blood Cell Count (*10^9/L)",
-                min_value=0.0,
-                max_value=None,
-                value=7.0,
-            )
-        ## HCT
-        hct_unknown = st.checkbox("Hematocrit is unknown")
-        if hct_unknown:
-            prhct = None
-        else:
-            prhct = st.number_input(
-                "Hematocrit (%)",
-                min_value=0.0,
-                max_value=100.0,
-                value=41.0,
-            )
-        ## PLATE
-        plate_unknown = st.checkbox("Platelet Count is unknown")
-        if plate_unknown:
-            prplate = None
-        else:
-            prplate = st.number_input(
-                "Platelet Count (*10^9/L)",
-                min_value=0.0,
-                max_value=None,
-                value=238.0,
-            )
+        with alb_check_col:
+            st.write("")
+            st.write("")
+            alb_unknown = st.checkbox("Unknown", key="alb_unknown")
+
+        with alb_input_col:
+            if alb_unknown:
+                st.number_input("Albumin (g/dL)", value=0.0, disabled=True)
+                pralbumin = None
+            else:
+                pralbumin = st.number_input(
+                    "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
+                )
+
+        # WBC
+        wbc_input_col, wbc_check_col = st.columns([3, 2])
+
+        with wbc_check_col:
+            st.write("")
+            st.write("")
+            wbc_unknown = st.checkbox("Unknown", key="wbc_unknown")
+
+        with wbc_input_col:
+            if wbc_unknown:
+                st.number_input(
+                    "White Blood Cell Count (*10^9/L)", value=0.0, disabled=True
+                )
+                prwbc = None
+            else:
+                prwbc = st.number_input(
+                    "White Blood Cell Count (*10^9/L)",
+                    min_value=0.0,
+                    max_value=None,
+                    value=7.0,
+                )
+
+        # HCT
+        hct_input_col, hct_check_col = st.columns([3, 2])
+
+        with hct_check_col:
+            st.write("")
+            st.write("")
+            hct_unknown = st.checkbox("Unknown", key="hct_unknown")
+
+        with hct_input_col:
+            if hct_unknown:
+                st.number_input("Hematocrit (%)", value=0.0, disabled=True)
+                prhct = None
+            else:
+                prhct = st.number_input(
+                    "Hematocrit (%)",
+                    min_value=0.0,
+                    max_value=100.0,
+                    value=41.0,
+                )
+
+        # PLATE
+        plate_input_col, plate_check_col = st.columns([3, 2])
+
+        with plate_check_col:
+            st.write("")
+            st.write("")
+            plate_unknown = st.checkbox("Unknown", key="plate_unknown")
+
+        with plate_input_col:
+            if plate_unknown:
+                st.number_input("Platelet Count (*10^9/L)", value=0.0, disabled=True)
+                prplate = None
+            else:
+                prplate = st.number_input(
+                    "Platelet Count (*10^9/L)",
+                    min_value=0.0,
+                    max_value=None,
+                    value=238.0,
+                )
+
     # ================== Intra-Op ===================
     with col4:
-        st.subheader("Intra-Operative Characteristics")
         operyr = st.number_input(
             "Operation Year", min_value=2008, max_value=2025, value=2018
         )
@@ -273,17 +352,32 @@ def main():
             ],
             index=1,
         )
-        ##Op-time
-        optime_unknown = st.checkbox("Operation Time is unknown")
-        if optime_unknown:
-            optime = None
-        else:
-            optime = st.number_input(
-                "Operation Time (minutes)", min_value=0.0, max_value=None, value=214.0
-            )
+        # Operation Time
+        optime_input_col, optime_check_col = st.columns([3, 2])
+
+        with optime_check_col:
+            st.write("")  # Spacer to align with input
+            st.write("")
+            optime_unknown = st.checkbox("Unknown", key="optime_unknown")
+
+        with optime_input_col:
+            if optime_unknown:
+                st.number_input(
+                    "Operation Time (minutes)",
+                    value=0.0,
+                    disabled=True,
+                )
+                optime = None
+            else:
+                optime = st.number_input(
+                    "Operation Time (minutes)",
+                    min_value=0.0,
+                    max_value=None,
+                    value=214.0,
+                )
+
     # ================== Proc ===================
     with col5:
-        st.subheader("Head and Neck Procedures")
         part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"], index=1)
         comp_ext_gloss = st.selectbox(
             "Composite Extended Glossectomy", ["Yes", "No"], index=1
