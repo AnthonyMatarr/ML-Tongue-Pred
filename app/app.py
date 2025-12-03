@@ -67,355 +67,367 @@ def main():
     ################################################# Input Section #################################################
     #################################################################################################################
     st.header("Patient Information")
-    # Row 1: Subheaders only
-    header_cols = st.columns(5)
-    header_cols[0].subheader("Demographics")
-    header_cols[1].subheader("Pre-Operative Health Status")
-    header_cols[2].subheader("Pre-Operative Blood Labs")
-    header_cols[3].subheader("Intra-Operative Characteristics")
-    header_cols[4].subheader("Head and Neck Procedures")
     col1, col2, col3, col4, col5 = st.columns(5)
     # ================== Demographics ===================
     with col1:
-        sex = st.selectbox("Sex", ["Male", "Female"], index=0)  # --> 1/0
-        # ================== Dynamic Weight ===================
-        # Initialize session state
-        if "prev_weight_unit" not in st.session_state:
-            st.session_state.prev_weight_unit = "kg"
-        if "weight_kg" not in st.session_state:
-            st.session_state.weight_kg = 77.11
-        if "weight_lbs" not in st.session_state:
-            st.session_state.weight_lbs = 170.0
-        # Nested columns: input on left, checkbox on right
-        input_col, check_col = st.columns([3, 2])
+        with st.expander("**Demographics**", expanded=True):
+            sex = st.selectbox("Sex", ["Male", "Female"], index=0)  # --> 1/0
+            # ================== Dynamic Weight ===================
+            # Initialize session state
+            if "prev_weight_unit" not in st.session_state:
+                st.session_state.prev_weight_unit = "kg"
+            if "weight_kg" not in st.session_state:
+                st.session_state.weight_kg = 77.11
+            if "weight_lbs" not in st.session_state:
+                st.session_state.weight_lbs = 170.0
+            # Nested columns: input on left, checkbox on right
+            input_col, check_col = st.columns([3, 2])
 
-        with check_col:
-            st.write("")  # Spacer to align with input
-            st.write("")  # Spacer to align with input
-            weight_unknown = st.checkbox("Unknown", key="weight_unknown")
-        # Unit selector below both
-        if not weight_unknown:
-            weight_unit = st.radio(
-                "Weight unit",
-                ["lbs", "kg"],
-                index=1,
-                key="weight_unit",
-                horizontal=True,
+            with check_col:
+                st.write("")  # Spacer to align with input
+                st.write("")  # Spacer to align with input
+                weight_unknown = st.checkbox("N/A", key="weight_unknown")
+            # Unit selector below both
+            if not weight_unknown:
+                weight_unit = st.radio(
+                    "Weight unit",
+                    ["lbs", "kg"],
+                    index=1,
+                    key="weight_unit",
+                    horizontal=True,
+                )
+                # Detect if the unit changed and convert b4 rendering inputs
+                if weight_unit != st.session_state.prev_weight_unit:
+                    if weight_unit == "lbs":
+                        # KG -> LBS
+                        st.session_state.weight_lbs = (
+                            st.session_state.weight_kg * 2.20462
+                        )
+                    else:
+                        # LBS -> KG
+                        st.session_state.weight_kg = (
+                            st.session_state.weight_lbs / 2.20462
+                        )
+                    st.session_state.prev_weight_unit = weight_unit
+            ## Render input box
+            with input_col:
+                if weight_unknown:
+                    st.number_input("Weight", value=0.0, disabled=True)
+                    weight = None
+                else:
+                    weight_unit = st.session_state.get("weight_unit", "kg")
+                    if weight_unit == "lbs":
+                        weight = st.number_input(
+                            "Weight (lbs)", min_value=2.20462, key="weight_lbs"
+                        )
+                    else:
+                        weight_kg = st.number_input(
+                            "Weight (kg)", min_value=1.0, key="weight_kg"
+                        )
+                        weight = weight_kg * 2.20462
+
+            # ================== Dynamic Height ===================
+            # Initialize session state
+            if "prev_height_unit" not in st.session_state:
+                st.session_state.prev_height_unit = "m"
+            if "height_m" not in st.session_state:
+                st.session_state.height_m = 1.68
+            if "height_in" not in st.session_state:
+                st.session_state.height_in = 66.0
+
+            # Nested columns: input on left, checkbox on right
+            height_input_col, height_check_col = st.columns([3, 2])
+
+            with height_check_col:
+                st.write("")  # Spacer to align with input
+                st.write("")  # Spacer to align with input
+                height_unknown = st.checkbox("N/A", key="height_unknown")
+
+            # Unit selector below both
+            if not height_unknown:
+                height_unit = st.radio(
+                    "Height unit",
+                    ["in", "m"],
+                    index=1,
+                    key="height_unit",
+                    horizontal=True,
+                )
+                # Detect if the unit changed and convert b4 rendering inputs
+                if height_unit != st.session_state.prev_height_unit:
+                    if height_unit == "in":
+                        # Meters -> Inches
+                        st.session_state.height_in = st.session_state.height_m * 39.3701
+                    else:
+                        # Inches -> Meters
+                        st.session_state.height_m = st.session_state.height_in / 39.3701
+                    st.session_state.prev_height_unit = height_unit
+
+            ## Render input box
+            with height_input_col:
+                if height_unknown:
+                    st.number_input("Height", value=0.0, disabled=True)
+                    height = None
+                else:
+                    height_unit = st.session_state.get("height_unit", "m")
+                    if height_unit == "in":
+                        height = st.number_input(
+                            "Height (in)", min_value=39.3701, key="height_in"
+                        )
+                    else:
+                        height_m = st.number_input(
+                            "Height (m)", min_value=1.0, key="height_m"
+                        )
+                        height = height_m * 39.3701
+
+            # ================== Others ===================
+            ## AGE
+            # Nested columns: input on left, checkbox on right
+            age_input_col, age_check_col = st.columns([3, 2])
+            with age_check_col:
+                st.write("")  # Spacer to align with input
+                st.write("")  # Spacer to align with input
+                age_unknown = st.checkbox("N/A", key="age_unknown")
+            with age_input_col:
+                if age_unknown:
+                    st.number_input("Age", value=0.0, disabled=True)
+                    age = None
+                else:
+                    age = st.number_input("Age", min_value=18, max_value=90, value=63)
+
+            hispanic = st.selectbox(
+                "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"], index=1  # --> 1/0
+            )  # fix to be 1/0
+            race = st.selectbox(
+                "Race",
+                [
+                    "White",
+                    "Black or African American",
+                    "Asian",
+                    "Unknown/Other",  # --> Unknown_Other
+                ],
+                index=0,
             )
-            # Detect if the unit changed and convert b4 rendering inputs
-            if weight_unit != st.session_state.prev_weight_unit:
-                if weight_unit == "lbs":
-                    # KG -> LBS
-                    st.session_state.weight_lbs = st.session_state.weight_kg * 2.20462
-                else:
-                    # LBS -> KG
-                    st.session_state.weight_kg = st.session_state.weight_lbs / 2.20462
-                st.session_state.prev_weight_unit = weight_unit
-        ## Render input box
-        with input_col:
-            if weight_unknown:
-                st.number_input("Weight", value=0.0, disabled=True)
-                weight = None
-            else:
-                weight_unit = st.session_state.get("weight_unit", "kg")
-                if weight_unit == "lbs":
-                    weight = st.number_input(
-                        "Weight (lbs)", min_value=2.20462, key="weight_lbs"
-                    )
-                else:
-                    weight_kg = st.number_input(
-                        "Weight (kg)", min_value=1.0, key="weight_kg"
-                    )
-                    weight = weight_kg * 2.20462
-
-        # ================== Dynamic Height ===================
-        # Initialize session state
-        if "prev_height_unit" not in st.session_state:
-            st.session_state.prev_height_unit = "m"
-        if "height_m" not in st.session_state:
-            st.session_state.height_m = 1.68
-        if "height_in" not in st.session_state:
-            st.session_state.height_in = 66.0
-
-        # Nested columns: input on left, checkbox on right
-        height_input_col, height_check_col = st.columns([3, 2])
-
-        with height_check_col:
-            st.write("")  # Spacer to align with input
-            st.write("")  # Spacer to align with input
-            height_unknown = st.checkbox("Unknown", key="height_unknown")
-
-        # Unit selector below both
-        if not height_unknown:
-            height_unit = st.radio(
-                "Height unit",
-                ["in", "m"],
-                index=1,
-                key="height_unit",
-                horizontal=True,
-            )
-            # Detect if the unit changed and convert b4 rendering inputs
-            if height_unit != st.session_state.prev_height_unit:
-                if height_unit == "in":
-                    # Meters -> Inches
-                    st.session_state.height_in = st.session_state.height_m * 39.3701
-                else:
-                    # Inches -> Meters
-                    st.session_state.height_m = st.session_state.height_in / 39.3701
-                st.session_state.prev_height_unit = height_unit
-
-        ## Render input box
-        with height_input_col:
-            if height_unknown:
-                st.number_input("Height", value=0.0, disabled=True)
-                height = None
-            else:
-                height_unit = st.session_state.get("height_unit", "m")
-                if height_unit == "in":
-                    height = st.number_input(
-                        "Height (in)", min_value=39.3701, key="height_in"
-                    )
-                else:
-                    height_m = st.number_input(
-                        "Height (m)", min_value=1.0, key="height_m"
-                    )
-                    height = height_m * 39.3701
-
-        # ================== Others ===================
-        ## AGE
-        # Nested columns: input on left, checkbox on right
-        age_input_col, age_check_col = st.columns([3, 2])
-        with age_check_col:
-            st.write("")  # Spacer to align with input
-            st.write("")  # Spacer to align with input
-            age_unknown = st.checkbox("Unknown", key="age_unknown")
-        with age_input_col:
-            if age_unknown:
-                st.number_input("Age", value=0.0, disabled=True)
-                age = None
-            else:
-                age = st.number_input("Age", min_value=18, max_value=90, value=63)
-
-        hispanic = st.selectbox(
-            "Ethnicity", ["Hispanic", "Not Hispanic/Unknown"], index=1  # --> 1/0
-        )  # fix to be 1/0
-        race = st.selectbox(
-            "Race",
-            [
-                "White",
-                "Black or African American",
-                "Asian",
-                "Unknown/Other",  # --> Unknown_Other
-            ],
-            index=0,
-        )
     # ================== Pre-Op ===================
     with col2:
-        diabetes = st.selectbox("Diabetes", ["Yes", "No"], index=1)
-        smoke = st.selectbox("Current Smoker", ["Yes", "No"], index=1)
-        dyspnea = st.selectbox("Dyspnea", ["Yes", "No", "Unknown"], index=2)
-        vent = st.selectbox("Ventilator >48 Hours", ["Yes", "No"], index=1)
-        hxcopd = st.selectbox("COPD", ["Yes", "No"], index=1)
-        ascites = st.selectbox("Ascites", ["Yes", "No"])
-        hxchf = st.selectbox("Congestive Heart Failure", ["Yes", "No"], index=1)
-        hypermed = st.selectbox("Hypertension", ["Yes", "No"], index=1)
-        renal_failure = st.selectbox(
-            "Acute Renal Failure", ["Yes", "No", "Unknown"], index=2
-        )
-        dialysis = st.selectbox("Dialysis", ["Yes", "No"], index=1)
-        discancr = st.selectbox("Disseminated Cancer", ["Yes", "No"], index=1)
-        wndinf = st.selectbox("Wound Infection", ["Yes", "No", "Unknown"], index=2)
-        steroid = st.selectbox("Corticosteroid Use", ["Yes", "No"], index=1)
-        wtloss = st.selectbox(f"Weight Loss", ["Yes", "No", "Unknown"], index=2)
-        bleed = st.selectbox("Bleeding Disorder", ["Yes", "No"], index=1)
-        transfus = st.selectbox("Blood Transfusion", ["Yes", "No"], index=1)
-        prsepis = st.selectbox("Sepsis", ["Yes", "No"], index=1)
-        func_stat = st.selectbox(
-            "Functional Status", ["Independent", "Dependent", "Unknown"], index=0
-        )  # --> 1/0
-        asa_class = st.selectbox(
-            "ASA Class",
-            [
-                "1-No Disturbance",  # --> 1-No Disturb
-                "2-Mild Disturbance",  # --> 2-Mild Disturb
-                "3-Severe Disturbance",  # --> 3-Severe Disturb
-                "4-Life Threatening Disturbance/5-Moribund",  # --> 4-Life Threat
-            ],
-            index=2,
-        )
+        with st.expander("**Pre-Operative Health Status**", expanded=True):
+            diabetes = st.selectbox("Diabetes", ["Yes", "No"], index=1)
+            smoke = st.selectbox("Current Smoker", ["Yes", "No"], index=1)
+            dyspnea = st.selectbox("Dyspnea", ["Yes", "No", "Unknown"], index=2)
+            vent = st.selectbox("Ventilator >48 Hours", ["Yes", "No"], index=1)
+            hxcopd = st.selectbox("COPD", ["Yes", "No"], index=1)
+            ascites = st.selectbox("Ascites", ["Yes", "No"])
+            hxchf = st.selectbox("Congestive Heart Failure", ["Yes", "No"], index=1)
+            hypermed = st.selectbox("Hypertension", ["Yes", "No"], index=1)
+            renal_failure = st.selectbox(
+                "Acute Renal Failure", ["Yes", "No", "Unknown"], index=2
+            )
+            dialysis = st.selectbox("Dialysis", ["Yes", "No"], index=1)
+            discancr = st.selectbox("Disseminated Cancer", ["Yes", "No"], index=1)
+            wndinf = st.selectbox("Wound Infection", ["Yes", "No", "Unknown"], index=2)
+            steroid = st.selectbox("Corticosteroid Use", ["Yes", "No"], index=1)
+            wtloss = st.selectbox(f"Weight Loss", ["Yes", "No", "Unknown"], index=2)
+            bleed = st.selectbox("Bleeding Disorder", ["Yes", "No"], index=1)
+            transfus = st.selectbox("Blood Transfusion", ["Yes", "No"], index=1)
+            prsepis = st.selectbox("Sepsis", ["Yes", "No"], index=1)
+            func_stat = st.selectbox(
+                "Functional Status", ["Independent", "Dependent", "Unknown"], index=0
+            )  # --> 1/0
+            asa_class = st.selectbox(
+                "ASA Class",
+                [
+                    "1-No Disturbance",  # --> 1-No Disturb
+                    "2-Mild Disturbance",  # --> 2-Mild Disturb
+                    "3-Severe Disturbance",  # --> 3-Severe Disturb
+                    "4-Life Threatening Disturbance/5-Moribund",  # --> 4-Life Threat
+                ],
+                index=2,
+            )
     # ================== Blood ===================
     with col3:
-        # Albumin
-        alb_input_col, alb_check_col = st.columns([3, 2])
+        with st.expander("**Pre-Operative Blood Labs**", expanded=True):
+            # Albumin
+            alb_input_col, alb_check_col = st.columns([3, 2])
 
-        with alb_check_col:
-            st.write("")
-            st.write("")
-            alb_unknown = st.checkbox("Unknown", key="alb_unknown")
+            with alb_check_col:
+                st.write("")
+                st.write("")
+                alb_unknown = st.checkbox("N/A", key="alb_unknown")
 
-        with alb_input_col:
-            if alb_unknown:
-                st.number_input("Albumin (g/dL)", value=0.0, disabled=True)
-                pralbumin = None
-            else:
-                pralbumin = st.number_input(
-                    "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
-                )
+            with alb_input_col:
+                if alb_unknown:
+                    st.number_input("Albumin (g/dL)", value=0.0, disabled=True)
+                    pralbumin = None
+                else:
+                    pralbumin = st.number_input(
+                        "Albumin (g/dL)", min_value=0.0, max_value=None, value=4.2
+                    )
 
-        # WBC
-        wbc_input_col, wbc_check_col = st.columns([3, 2])
+            # WBC
+            wbc_input_col, wbc_check_col = st.columns([3, 2])
 
-        with wbc_check_col:
-            st.write("")
-            st.write("")
-            wbc_unknown = st.checkbox("Unknown", key="wbc_unknown")
+            with wbc_check_col:
+                st.write("")
+                st.write("")
+                wbc_unknown = st.checkbox("N/A", key="wbc_unknown")
 
-        with wbc_input_col:
-            if wbc_unknown:
-                st.number_input(
-                    "White Blood Cell Count (*10^9/L)", value=0.0, disabled=True
-                )
-                prwbc = None
-            else:
-                prwbc = st.number_input(
-                    "White Blood Cell Count (*10^9/L)",
-                    min_value=0.0,
-                    max_value=None,
-                    value=7.0,
-                )
+            with wbc_input_col:
+                if wbc_unknown:
+                    st.number_input(
+                        "White Blood Cell Count (*10^9/L)", value=0.0, disabled=True
+                    )
+                    prwbc = None
+                else:
+                    prwbc = st.number_input(
+                        "White Blood Cell Count (*10^9/L)",
+                        min_value=0.0,
+                        max_value=None,
+                        value=7.0,
+                    )
 
-        # HCT
-        hct_input_col, hct_check_col = st.columns([3, 2])
+            # HCT
+            hct_input_col, hct_check_col = st.columns([3, 2])
 
-        with hct_check_col:
-            st.write("")
-            st.write("")
-            hct_unknown = st.checkbox("Unknown", key="hct_unknown")
+            with hct_check_col:
+                st.write("")
+                st.write("")
+                hct_unknown = st.checkbox("N/A", key="hct_unknown")
 
-        with hct_input_col:
-            if hct_unknown:
-                st.number_input("Hematocrit (%)", value=0.0, disabled=True)
-                prhct = None
-            else:
-                prhct = st.number_input(
-                    "Hematocrit (%)",
-                    min_value=0.0,
-                    max_value=100.0,
-                    value=41.0,
-                )
+            with hct_input_col:
+                if hct_unknown:
+                    st.number_input("Hematocrit (%)", value=0.0, disabled=True)
+                    prhct = None
+                else:
+                    prhct = st.number_input(
+                        "Hematocrit (%)",
+                        min_value=0.0,
+                        max_value=100.0,
+                        value=41.0,
+                    )
 
-        # PLATE
-        plate_input_col, plate_check_col = st.columns([3, 2])
+            # PLATE
+            plate_input_col, plate_check_col = st.columns([3, 2])
 
-        with plate_check_col:
-            st.write("")
-            st.write("")
-            plate_unknown = st.checkbox("Unknown", key="plate_unknown")
+            with plate_check_col:
+                st.write("")
+                st.write("")
+                plate_unknown = st.checkbox("N/A", key="plate_unknown")
 
-        with plate_input_col:
-            if plate_unknown:
-                st.number_input("Platelet Count (*10^9/L)", value=0.0, disabled=True)
-                prplate = None
-            else:
-                prplate = st.number_input(
-                    "Platelet Count (*10^9/L)",
-                    min_value=0.0,
-                    max_value=None,
-                    value=238.0,
-                )
+            with plate_input_col:
+                if plate_unknown:
+                    st.number_input(
+                        "Platelet Count (*10^9/L)", value=0.0, disabled=True
+                    )
+                    prplate = None
+                else:
+                    prplate = st.number_input(
+                        "Platelet Count (*10^9/L)",
+                        min_value=0.0,
+                        max_value=None,
+                        value=238.0,
+                    )
 
+        # ================== Intra-Op ===================
     # ================== Intra-Op ===================
     with col4:
-        operyr = st.number_input(
-            "Operation Year", min_value=2008, max_value=2025, value=2018
-        )
-        mal_neoplasm = st.selectbox(
-            "Location of Tongue Tumor",
-            [
-                "Anterior two-thirds",  # --> Malignant neoplasm of anterior two-thirds of tongue unspecified
-                "Base",  # --> Malignant neoplasm of base of tongue
-                "Border",  # --> Malignant neoplasm of border of tongue
-                "Junctional Zone",  # --> Malignant neoplasm of junctional zone of tongue
-                "Surface",  # --> Malignant neoplasm of surface of tongue
-                "Lingual Tonsil",  # --> Malignant neoplasm of lingual tonsil
-                "Unspecified",  # --> Malignant neoplasm of tongue unspecified
-            ],
-            index=5,
-        )
-        inout = st.selectbox("Setting", ["Inpatient", "Outpatient"], index=0)  # --> 1/0
-        elect_surg = st.selectbox(
-            "Case Type",
-            [
-                "Elective",  # --> Elective
-                "Urgent/Emergent",  # --> Urgent_Emergent
-                "Unknown",  # --> Unknown
-            ],
-            index=1,
-        )
-        # Operation Time
-        optime_input_col, optime_check_col = st.columns([3, 2])
+        with st.expander("**Intra-Operative Characteristics**", expanded=True):
+            operyr = st.number_input(
+                "Operation Year", min_value=2008, max_value=2025, value=2018
+            )
+            mal_neoplasm = st.selectbox(
+                "Location of Tongue Tumor",
+                [
+                    "Anterior two-thirds",  # --> Malignant neoplasm of anterior two-thirds of tongue unspecified
+                    "Base",  # --> Malignant neoplasm of base of tongue
+                    "Border",  # --> Malignant neoplasm of border of tongue
+                    "Junctional Zone",  # --> Malignant neoplasm of junctional zone of tongue
+                    "Surface",  # --> Malignant neoplasm of surface of tongue
+                    "Lingual Tonsil",  # --> Malignant neoplasm of lingual tonsil
+                    "Unspecified",  # --> Malignant neoplasm of tongue unspecified
+                ],
+                index=5,
+            )
+            inout = st.selectbox(
+                "Setting", ["Inpatient", "Outpatient"], index=0
+            )  # --> 1/0
+            elect_surg = st.selectbox(
+                "Case Type",
+                [
+                    "Elective",  # --> Elective
+                    "Urgent/Emergent",  # --> Urgent_Emergent
+                    "Unknown",  # --> Unknown
+                ],
+                index=1,
+            )
+            # Operation Time
+            optime_input_col, optime_check_col = st.columns([3, 2])
 
-        with optime_check_col:
-            st.write("")  # Spacer to align with input
-            st.write("")
-            optime_unknown = st.checkbox("Unknown", key="optime_unknown")
+            with optime_check_col:
+                st.write("")  # Spacer to align with input
+                st.write("")
+                optime_unknown = st.checkbox("N/A", key="optime_unknown")
 
-        with optime_input_col:
-            if optime_unknown:
-                st.number_input(
-                    "Operation Time (minutes)",
-                    value=0.0,
-                    disabled=True,
-                )
-                optime = None
-            else:
-                optime = st.number_input(
-                    "Operation Time (minutes)",
-                    min_value=0.0,
-                    max_value=None,
-                    value=214.0,
-                )
-
+            with optime_input_col:
+                if optime_unknown:
+                    st.number_input(
+                        "Operation Time (minutes)",
+                        value=0.0,
+                        disabled=True,
+                    )
+                    optime = None
+                else:
+                    optime = st.number_input(
+                        "Operation Time (minutes)",
+                        min_value=0.0,
+                        max_value=None,
+                        value=214.0,
+                    )
     # ================== Proc ===================
     with col5:
-        part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"], index=1)
-        comp_ext_gloss = st.selectbox(
-            "Composite Extended Glossectomy", ["Yes", "No"], index=1
-        )
-        total_gloss = st.selectbox("Total Glossectomy", ["Yes", "No"], index=1)
-        tongue_exc = st.selectbox("Excision of Tongue Lesions", ["Yes", "No"], index=1)
-        oral_cav_recon = st.selectbox(
-            "Local/Regional Tissue Flaps",
-            ["Yes", "No"],
-            index=1,
-        )
-        free_tissue_transfer = st.selectbox(
-            "Free Tissue Transfer", ["Yes", "No"], index=1
-        )
-        skin_auto = st.selectbox("Skin Autograft", ["Yes", "No"], index=1)
-        neck_diss = st.selectbox("Lymphadenectomy Procedure", ["Yes", "No"], index=1)
-        alv_ridge = st.selectbox(
-            "Alveolar Ridge and Gingival Procedure", ["Yes", "No"], index=1
-        )
-        mand_res = st.selectbox(
-            "Mandibular Resection/Reconstruction", ["Yes", "No"], index=1
-        )
-        peri_nerve = st.selectbox("Peripheral Nerve Repair", ["Yes", "No"], index=1)
-        trach_proc = st.selectbox("Tracheostomy Procedure", ["Yes", "No"], index=1)
-        gast_eso_proc = st.selectbox(
-            "Gastrostomy and Esophageal Access Procedure", ["Yes", "No"], index=1
-        )
-        sub_gland = st.selectbox("Submandibular Gland Excision", ["Yes", "No"], index=1)
-        parotid = st.selectbox("Parotid Gland Excision", ["Yes", "No"], index=1)
-        laryngeal = st.selectbox(
-            "Laryngeal Resection/Reconstruction", ["Yes", "No"], index=1
-        )
-        pharyngeal = st.selectbox(
-            "Pharyngeal Resection/Reconstruction", ["Yes", "No"], index=1
-        )
-        tonsil = st.selectbox(
-            "Tonsillectomy and Tonsillar Region Procedure", ["Yes", "No"], index=1
-        )
+        with st.expander("**Head and Neck Procedures**", expanded=True):
+            part_gloss = st.selectbox("Partial Glossectomy", ["Yes", "No"], index=1)
+            comp_ext_gloss = st.selectbox(
+                "Composite Extended Glossectomy", ["Yes", "No"], index=1
+            )
+            total_gloss = st.selectbox("Total Glossectomy", ["Yes", "No"], index=1)
+            tongue_exc = st.selectbox(
+                "Excision of Tongue Lesions", ["Yes", "No"], index=1
+            )
+            oral_cav_recon = st.selectbox(
+                "Local/Regional Tissue Flaps",
+                ["Yes", "No"],
+                index=1,
+            )
+            free_tissue_transfer = st.selectbox(
+                "Free Tissue Transfer", ["Yes", "No"], index=1
+            )
+            skin_auto = st.selectbox("Skin Autograft", ["Yes", "No"], index=1)
+            neck_diss = st.selectbox(
+                "Lymphadenectomy Procedure", ["Yes", "No"], index=1
+            )
+            alv_ridge = st.selectbox(
+                "Alveolar Ridge and Gingival Procedure", ["Yes", "No"], index=1
+            )
+            mand_res = st.selectbox(
+                "Mandibular Resection/Reconstruction", ["Yes", "No"], index=1
+            )
+            peri_nerve = st.selectbox("Peripheral Nerve Repair", ["Yes", "No"], index=1)
+            trach_proc = st.selectbox("Tracheostomy Procedure", ["Yes", "No"], index=1)
+            gast_eso_proc = st.selectbox(
+                "Gastrostomy and Esophageal Access Procedure", ["Yes", "No"], index=1
+            )
+            sub_gland = st.selectbox(
+                "Submandibular Gland Excision", ["Yes", "No"], index=1
+            )
+            parotid = st.selectbox("Parotid Gland Excision", ["Yes", "No"], index=1)
+            laryngeal = st.selectbox(
+                "Laryngeal Resection/Reconstruction", ["Yes", "No"], index=1
+            )
+            pharyngeal = st.selectbox(
+                "Pharyngeal Resection/Reconstruction", ["Yes", "No"], index=1
+            )
+            tonsil = st.selectbox(
+                "Tonsillectomy and Tonsillar Region Procedure", ["Yes", "No"], index=1
+            )
 
     # ================== Create input DF ===================
     input_data = pd.DataFrame(
@@ -663,32 +675,38 @@ def main():
 
                     # Progress bar visualization
                     st.progress(float(prob_positive))
-
                 except Exception as e:
                     st.error(f"Error predicting {display_name}: {str(e)}")
-        # Display input summary
 
+        # Display imputed values
         if len(imp_cols) > 0:
             st.header("Imputed Values")
+            st.info(
+                """
+            When patient data is missing, the modeling pipeline uses an iterative regression-based imputation method to estimate those values.
+            It models each incomplete variable using other available patient characteristics, ***defined in each outcome's respective train set,*** and refines these estimates over several rounds.
+            Imputed values are statistical estimates, not actual measurements.
+            """
+            )
             for display_name, folder_name in selected_outcomes:
                 _, preprocessor = load_model_pipeline(folder_name)
                 with st.expander(f"📋 Imputed Values for {display_name}"):
                     ## Get pipeline steps
                     num_pipe = preprocessor.named_transformers_["num"]
                     imputer = num_pipe.named_steps["imputer"]
-                    bmi_step = num_pipe.named_steps["bmi"]
-                    scaler = num_pipe.named_steps["scaler"]
+                    # bmi_step = num_pipe.named_steps["bmi"]
+                    # scaler = num_pipe.named_steps["scaler"]
                     ## Get intermediate values
                     X_num_raw = input_data[num_dict.keys()].to_numpy()
                     X_imputed = imputer.transform(X_num_raw)
-                    all_X_bmi_unscaled = bmi_step.transform(X_imputed)
-                    bmi_unscaled = all_X_bmi_unscaled[:, -1]
+                    # all_X_bmi_unscaled = bmi_step.transform(X_imputed)
+                    # bmi_unscaled = all_X_bmi_unscaled[:, -1]
                     # Build a small df for display
                     imp_display = {}
                     for col in imp_cols:
                         ## Find index amongst num cols
                         col_idx = 0
-                        for col_name, sub_dict in num_dict.items():
+                        for col_name in num_dict.keys():
                             if col == col_name:
                                 break
                             else:
@@ -700,7 +718,7 @@ def main():
                     display_df = pd.DataFrame.from_dict(
                         imp_display, orient="index", columns=["Value"]
                     )
-                    st.dataframe(display_df, use_container_width=False, width=400)
+                    st.dataframe(display_df, width="content")
 
 
 if __name__ == "__main__":
