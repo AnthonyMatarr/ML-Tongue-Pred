@@ -462,13 +462,7 @@ def main():
                     
                     •ASA III: Severe systemic disease
 
-                    •ASA IV: Severe systemic disease, constant threat to life
-
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;• Combined with ASA V
-
-                    •ASA V: Moribund, not expected to survive without operation
-
-                    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;• Combined with ASA IV
+                    •ASA IV/V: Severe systemic disease that is life-threatening (ASA IV) or moribund with minimal chance of survival without surgery (ASA V).
                     """,
             )
     # ================== Blood ===================
