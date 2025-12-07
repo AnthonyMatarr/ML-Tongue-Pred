@@ -114,13 +114,13 @@ def transform_casetype(input_val):
 
 def transform_ASA(input_val):
     match input_val:
-        case "1-No Disturbance":
+        case "I":
             return "1-No Disturb"
-        case "2-Mild Disturbance":
+        case "II":
             return "2-Mild Disturb"
-        case "3-Severe Disturbance":
+        case "III":
             return "3-Severe Disturb"
-        case "4-Life Threatening Disturbance/5-Moribund":
+        case "IV/V":
             return "4/5-Life Threat/Moribund"
         case _:
             raise ValueError(f"Invalid input: {input_val}")
