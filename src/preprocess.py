@@ -16,6 +16,30 @@ from sklearn.model_selection import train_test_split
 
 
 class BMICalculatorArray(BaseEstimator, TransformerMixin):
+    """
+    Scikit-learn transformer to calculate BMI from height and weight arrays.
+
+    Computes Body Mass Index using the imperial formula (703 * weight_lbs / height_in²),
+    removes the original height and weight columns, and appends the calculated BMI
+    as a new feature. Designed for integration with sklearn pipelines.
+
+    Parameters
+    ----------
+    height_idx : int
+        Column index containing height values (in inches).
+    weight_idx : int
+        Column index containing weight values (in pounds).
+
+    Notes
+    -----
+    - Uses imperial BMI formula: BMI = (weight_lbs * 703) / (height_in²)
+    - For metric formula (kg/m²), use: BMI = weight_kg / (height_m²)
+    - Removes original height and weight columns to avoid multicollinearity
+    - BMI is appended as the last column in the transformed array
+    - Output is cast to float32 for memory efficiency in ML pipelines
+    - Compatible with sklearn's ColumnTransformer and Pipeline
+    """
+
     def __init__(self, height_idx, weight_idx):
         self.height_idx = height_idx
         self.weight_idx = weight_idx
@@ -108,29 +132,10 @@ def transform_export_data(
     - If output paths exist, existing files/directories are overwritten with a warning.
     - Saved files use parquet format for features (efficient storage) and Excel for labels.
 
-        Warnings
+    Warnings
     --------
     UserWarning
         Raised when overwriting existing data or preprocessor files.
-
-    Examples
-    --------
-    >>> from sklearn.preprocessing import StandardScaler
-    >>> from sklearn.compose import ColumnTransformer
-    >>>
-    >>> preprocessor = ColumnTransformer([
-    ...     ('scaler', StandardScaler(), ['AGE', 'BMI'])
-    ... ])
-    >>>
-    >>> data_splits = transform_export_data(
-    ...     X=features_df,
-    ...     y=labels_series,
-    ...     outcome_name='mortality',
-    ...     preprocessor=preprocessor,
-    ...     data_path=Path('data/processed'),
-    ...     pipeline_path=Path('models/preprocessors')
-    ... )
-    >>> print(data_splits['X_train'].shape)
     """
     ##Get train set
     X_train, X_temp, y_train, y_temp = train_test_split(

@@ -1,8 +1,6 @@
 from shutil import rmtree
 import numpy as np
 import pandas as pd
-import warnings
-from src.data_utils import get_feature_lists
 
 
 ##############################################################################
@@ -708,20 +706,38 @@ def merge_dfs(data_dict, verbose=False):
 ##############################################################################
 def extract_cols(import_df, new_cols_dict, target_cols_list, cpt_flag):
     """
-    Extract binary indicator columns based on code matches.
-    Used for CPT/ICD column generation.
-    If CPT, count occurrences of codes. If ICD, simply track if any code occurs.
+    Extract binary indicator columns based on exact or prefix code matches.
+
+    Creates new binary columns by searching for CPT or ICD codes across multiple
+    source columns. Supports both exact matching and prefix matching depending on
+    the code type and specified match strategy.
 
     Parameters
-    -----------
-    import_df: pandas dataframe
-        raw tabular dataframe containing all necessary columns containing codes
-    new_cols_dict: dict{<string>: list[<string>]}
-        maps new column names to lists of codes
-    target_cols_list: list[<string>]
-        list of columns containing CPT/ICD codes to search in
-    cpt_flag: boolean
-        if True, use exact CPT matching (except for otherCPT); if False (ICD), use prefix matching
+    ----------
+    import_df : pd.DataFrame
+        Raw tabular dataframe containing columns with CPT/ICD codes to search.
+    new_cols_dict : dict of {str: list of tuple}
+        Maps new column names to lists of (code, match_type) tuples, where:
+        - code: CPT or ICD code to match (str or numeric)
+        - match_type: Either 'exact' or 'prefix'
+    target_cols_list : list of str
+        Column names containing CPT/ICD codes to search within.
+    cpt_flag : bool
+        If True, applies CPT-specific normalization (converts to integer strings).
+        If False, applies ICD-specific normalization (uppercase string conversion).
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of input dataframe with additional binary indicator columns (0/1)
+        for each key in new_cols_dict.
+
+    Notes
+    -----
+    - Missing values in target columns are treated as empty strings
+    - CPT codes are converted to integer strings for normalization
+    - ICD codes are uppercased for case-insensitive matching
+    - A row receives 1 if any target column matches any specified code
     """
     df = import_df.copy()
 
@@ -777,30 +793,67 @@ def create_and_filter_new_cols(
     cols_to_combine=None,
 ):
     """
-    Loops through dict,
-    creates new columns based on CPT/ICD codes,
-    filters on a given subset of those columns,
-    and exports resulting dataframes.
+    Create binary indicator columns from CPT/ICD codes, filter patients, and export results.
+
+    This function processes multiple dataframes (typically by year) to:
+    1. Extract binary columns based on code matches
+    2. Filter patients who have at least one specified code
+    3. Optionally combine mutually exclusive columns into a single categorical column
+    4. Export filtered dataframes to parquet files
 
     Parameters
     ----------
-    new_col_dict: dict{string:list[string]}
-        maps new column names to lists of codes
-    old_df_dict: dict{string:list[pd.Dataframe]}
-        maps each year to its corresponding (original) data
-    export_dir: pathlib.Path
-        location of directory where resulting dfs will be exprted
-    target_cols: list[string]
-        list of columns to subset original df with
-        simply used to simplify computation
-        should include features+ new ICD cols + new CPT cols
-    target_code_cols: list[string]
-        list of columns containing CPT/ICD codes to search in
-    extra_filtered: Boolean
-        boolean flag indicating whether or not the data will be extra filtered
-    cpt_flag: Boolean
-        boolean flag indicating if the call is being made with CPT/ICD codes
+    *_ : tuple
+        Placeholder to prevent positional arguments (raises ValueError if used).
+    new_col_dict : dict of {str: list of tuple}
+        Maps new column names to lists of (code, match_type) tuples.
+        Passed directly to extract_cols().
+    old_df_dict : dict of {str: pd.DataFrame}
+        Maps file identifiers (e.g., year labels) to their corresponding dataframes.
+    export_dir : pathlib.Path
+        Directory path where filtered dataframes will be exported as parquet files.
+        Will be recreated if it already exists.
+    target_cols : list of str
+        Column names to retain from the original dataframe. Used to subset data
+        and reduce computational overhead. Should include features, outcome columns,
+        and newly created indicator columns.
+    target_code_cols : list of str
+        Column names containing CPT/ICD codes to search within for code matching.
+    filter_cols : list of str
+        Newly created binary columns used to filter patients. Patients are retained
+        if they have at least one non-zero value in these columns.
+    cpt_flag : bool
+        If True, processes CPT codes. If False, processes ICD codes.
+        Determines normalization strategy and export file naming.
+    combine_col_name : str, optional
+        Name for the combined categorical column. If provided, cols_to_combine
+        must also be specified.
+    cols_to_combine : list of str, optional
+        Mutually exclusive binary columns to combine into a single categorical column.
+        The combined column will contain the column name where the indicator is 1,
+        or NA if none are present.
+
+    Returns
+    -------
+    dict of {str: pd.DataFrame}
+        Maps file identifiers to filtered dataframes with new indicator columns.
+
+    Raises
+    ------
+    ValueError
+        If positional arguments are provided.
+    ValueError
+        If cols_to_combine are not mutually exclusive (more than one is 1 in any row).
+
+    Notes
+    -----
+    - Column names are automatically uppercased for consistency
+    - The function handles year-to-year variations in NSQIP column availability
+    - Export files are named with pattern: {file_name}_{cpt|icd}.parquet
+    - The export directory is deleted and recreated on each run
+    - Progress and patient counts are printed for each file processed
     """
+
     if _ != tuple():
         raise ValueError("This function does not take positional arguments")
     if cpt_flag:

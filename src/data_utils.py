@@ -7,6 +7,9 @@ import joblib as jb
 
 
 def import_raw_data_dict(import_dir):
+    """
+    Import parquet files and return as a dictionary
+    """
     data_dict = {}
     for file in import_dir.iterdir():
         file_name = file.stem

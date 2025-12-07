@@ -10,8 +10,37 @@ import pandas as pd
 
 def get_ohe_cols(df):
     """
-    Helper function that returns original column names of features that were one-hot encoded
-    Uses '_' as an indicator
+    Extract original column names and categories from one-hot encoded features.
+
+    Parses column names in a dataframe to identify and group one-hot encoded features
+    by their original categorical variable names. Assumes one-hot encoded columns follow
+    the naming convention: 'ORIGINAL_NAME_CATEGORY_VALUE'.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe containing one-hot encoded columns with underscore-delimited names.
+
+    Returns
+    -------
+    dict of {str: list of str}
+        Maps original categorical column names to lists of their encoded category values.
+        For example:
+        {
+            'SEX': ['MALE', 'FEMALE'],
+            'RACE_NEW': ['WHITE', 'BLACK', 'ASIAN'],
+        }
+
+    Notes
+    -----
+    - Columns without underscores are assumed to be non-encoded and are skipped
+    - Special cases are excluded from grouping:
+      * Columns starting with 'ETHNICITY_'
+      * Columns starting with 'PARTIAL GLOSSECTOMY (HEMIGLOSSECTOMY_'
+      * Columns starting with 'COMPOSITE_'
+      * Columns starting with 'LOCAL_'
+    - For columns starting with 'RACE_NEW_', the original name is 'RACE_NEW'
+    - For all other encoded columns, the original name is the prefix before the first underscore
     """
     ohe_dict = {}
     for col in df.columns:
@@ -39,8 +68,53 @@ def get_ohe_cols(df):
 ######## Combine one-hot-encoded #######
 def combine_encoded(shap_values, name, mask, return_original=True):
     """
-    Helper function to combine shap values for one-hot encoded columns
-    Adapted from following repository: https://gist.github.com/peterdhansen/ca87cc1bfbc4c092f0872a3bfe3204b2
+    Combine SHAP values for one-hot encoded features into a single feature importance score.
+
+    Aggregates SHAP values from multiple one-hot encoded columns (e.g., SEX_MALE, SEX_FEMALE)
+    into a single SHAP value representing the original categorical feature (e.g., SEX).
+    This enables interpretation of categorical features as unified entities rather than
+    separate binary indicators.
+
+    Parameters
+    ----------
+    shap_values : shap.Explanation
+        SHAP Explanation object containing values, feature names, and metadata for all features.
+    name : str
+        Name for the combined categorical feature (e.g., 'SEX' for SEX_MALE and SEX_FEMALE).
+    mask : array-like of bool
+        Boolean mask indicating which features to combine. True values mark the one-hot
+        encoded columns belonging to the same categorical feature.
+    return_original : bool, default=True
+        If True, returns both the combined Explanation and the original subset Explanation.
+        If False, returns only the combined Explanation.
+
+    Returns
+    -------
+    shap.Explanation or tuple of (shap.Explanation, shap.Explanation)
+        If return_original=True:
+            (combined_sv, original_subset_sv) where:
+            - combined_sv: Explanation with one-hot features combined into single feature
+            - original_subset_sv: Explanation containing only the encoded features
+        If return_original=False:
+            combined_sv: Explanation with combined features
+
+    Notes
+    -----
+    - SHAP values are summed across encoded columns to create the combined importance
+    - The display data shows which specific category was active for each instance
+    - Original feature data is encoded as integers representing category indices
+    - All metadata (base_values, instance_names, etc.) is preserved in the output
+
+    Implementation Details
+    ----------------------
+    Adapted from: https://gist.github.com/peterdhansen/ca87cc1bfbc4c092f0872a3bfe3204b2
+
+    The combination process:
+    1. Extracts SHAP values for masked (encoded) features
+    2. Sums SHAP values across encoded columns
+    3. Reconstructs feature data to show active category
+    4. Concatenates non-encoded features with new combined feature
+    5. Preserves all SHAP Explanation metadata
     """
     mask = np.array(mask)
     mask_col_names = np.array(shap_values.feature_names, dtype="object")[mask]
@@ -109,7 +183,25 @@ def combine_encoded(shap_values, name, mask, return_original=True):
 
 def get_vals_to_plot(shap_vals):
     """
-    Helper function to reformat the shap_vals object (return value of shap.explainer())
+    Reformat SHAP values for plotting by handling different model output structures.
+
+    Converts SHAP Explanation objects with varying dimensionality (2D vs 3D arrays)
+    into a standardized 2D format suitable for SHAP visualization functions. Handles
+    binary classification models that output either single or dual class predictions,
+    as well as multi-class models.
+
+    Parameters
+    ----------
+    shap_vals : shap.Explanation
+        SHAP Explanation object from shap.Explainer(). May contain:
+        - 2D array [samples, features]: Standard format for many models
+        - 3D array [samples, features, classes]: Multi-output or multi-class format
+
+    Returns
+    -------
+    shap.Explanation
+        Reformatted SHAP Explanation with 2D values array [samples, features],
+        ready for plotting with shap.plots functions.
     """
     if len(shap_vals.values.shape) == 3:  # 3D array
         if shap_vals.values.shape[2] == 1:  # Binary classification with single output
@@ -127,26 +219,49 @@ def get_vals_to_plot(shap_vals):
 
 def generate_MAV(shap_vals, feat_order, model_name, result_path=None):
     """
-    Helper function to generate and optionally export mean absolute value table for shap values.
+    Generate and optionally export mean absolute SHAP value (MASV) importance table.
+
+    Computes both absolute and relative mean absolute SHAP values for each feature,
+    providing a quantitative measure of feature importance. The relative MASV shows
+    each feature's contribution as a percentage of total model explanation.
 
     Parameters
-    ---------
-    shap_vals: shap._explanation.Explanation
-        Shap explanation object containing shap values
-    feat_order:list[str]
-        List of column names specifying desired order in SHAP table
-    model_name: str
-        Specify which model is being analyzed
-    result_path: Optional pathlib.Path; defaults None
-        Path to directory where shap tables for all models will be written to
-        If left None, will not export
+    ----------
+    shap_vals : shap.Explanation
+        SHAP Explanation object containing values for all samples and features.
+        May be 2D or 3D array (will be reformatted internally).
+    feat_order : list of str
+        Desired ordering of features in the output table. Must contain exactly
+        the same features as shap_vals.feature_names (order can differ).
+    model_name : str
+        Name of the model being analyzed. Used as the Excel sheet name when exporting.
+    result_path : pathlib.Path, optional
+        Path to Excel file where MASV table will be written. If the file exists,
+        the new sheet is appended. If None, results are not exported.
+
+    Raises
+    ------
+    AssertionError
+        If feat_order and shap_vals.feature_names contain different features.
+        Prints the differences before raising.
+    AssertionError
+        If relative MASV percentages don't sum to approximately 100% (tolerance: 0.1%).
+
+    Notes
+    -----
+    - **MASV**: Mean Absolute SHAP Value - average of |SHAP| across all samples
+    - **Relative MASV**: Percentage contribution relative to sum of all MASVs
+    - Relative MASV percentages always sum to 100% (within numerical tolerance)
+    - Features are reordered according to feat_order in the output
+    - Excel export uses append mode if file exists, enabling multi-model comparison
+    - If all SHAP values are zero (rare edge case), function exits with warning
+
+    Output Table Columns
+    --------------------
+    - **Feature**: Feature name
+    - **MASV**: Mean absolute SHAP value (raw importance score)
+    - **Relative_ MASV**: Percentage of total explanation (0-100%)
     """
-    # if result_path and result_path.exists():
-    #     warnings.warn(
-    #         category=Warning,
-    #         message=f"Removing file at {result_path}. \nUnless this function fails, will over-write with new SHAP table",
-    #     )
-    # result_path.unlink()
     feat_names = shap_vals.feature_names
     try:
         assert set(feat_names) == set(feat_order)
@@ -194,31 +309,63 @@ def generate_MAV(shap_vals, feat_order, model_name, result_path=None):
 
 def get_shap(*_, X, model_dict, outcome_name, feat_order, result_path=None):
     """
-    Generates SHAP values with kernel explainer, builds mean absolute value (MAV) and relative MAV shap tables, and exports the tables
+    Generate SHAP values and export feature importance tables for multiple models.
+
+    Computes SHAP values using KernelExplainer (model-agnostic), handles one-hot
+    encoded features by combining them into their original categorical features,
+    and exports mean absolute SHAP value (MASV) tables in both raw and combined formats.
 
     Parameters
     ----------
-    X: pandas dataframe
-        Tabular dataframe containing data for which SHAP values will be generated (excluding target variable)
-        Test set is recommended for useful SHAP values, but can be any subset of the dataset
-    model_dict: dict()
-        Dictionary mapping model names to models
-        Format:
-            {
-                <model_name> str: <model> sklearn model
-            }
-    outcome_name: str
-        Specify outcome whose models are being analyzed
-    feat_order: list[str]
-        List of column names specifying desired order in SHAP table
-    result_path: Optional pathlib.Path; defaults None
-        Path to directory where shap tables for all models will be written to
-        If left None, will not export
+    *_ : tuple
+        Placeholder to prevent positional arguments (raises ValueError if used).
+    X : pd.DataFrame
+        Feature data for SHAP value computation (excluding target variable).
+        Typically the test set for unbiased feature importance assessment.
+    model_dict : dict of {str: sklearn-compatible model}
+        Maps model names to trained models. Each model must implement predict_proba().
+        Example: {'LightGBM': lgb_model, 'XGBoost': xgb_model}
+    outcome_name : str
+        Name of the outcome being predicted. Used for organizing output files.
+    feat_order : list of str
+        Desired ordering of features in output tables. Should contain original
+        categorical feature names (not one-hot encoded column names).
+        Example: ['AGE', 'SEX', 'BMI'] not ['AGE', 'SEX_MALE', 'SEX_FEMALE', 'BMI']
+    result_path : pathlib.Path, optional
+        Base directory for exporting SHAP tables. Creates subdirectories:
+        - result_path/raw/{outcome_name}.xlsx: All one-hot encoded features separate
+        - result_path/combined/{outcome_name}.xlsx: One-hot features combined
+        If None, results are not exported.
+
+    Returns
+    -------
+    None
+        SHAP tables are exported to Excel files if result_path is provided.
 
     Raises
     ------
-    ValueError:
-        If positional arguments are provided
+    ValueError
+        If positional arguments are provided.
+
+    Notes
+    -----
+    - Uses shap.Explainer with predict_proba for model-agnostic explanations
+    - Automatically detects and combines one-hot encoded features
+    - Generates two versions of SHAP tables:
+      * **Raw**: Each one-hot encoded column appears separately
+      * **Combined**: One-hot encoded columns are aggregated into original features
+    - Random seed is fixed (SEED from config) for reproducibility
+    - Each model gets its own sheet within the Excel files
+    - Combined SHAP values enable interpretation of categorical features as unified entities
+
+    Workflow
+    --------
+    1. For each model:
+       a. Generate SHAP values using KernelExplainer
+       b. Detect one-hot encoded features from column names
+       c. Create raw feature order (expanding combined features to OHE columns)
+       d. Combine one-hot encoded features into original categorical features
+       e. Export both raw and combined MASV tables
     """
     if _ != tuple():
         raise ValueError("This function does not take positional arguments")
