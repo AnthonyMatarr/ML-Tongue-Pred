@@ -113,6 +113,7 @@ def transform_casetype(input_val):
 
 
 def transform_ASA(input_val):
+    input_val = input_val.strip()
     match input_val:
         case "I":
             return "1-No Disturb"
