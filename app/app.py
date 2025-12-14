@@ -946,12 +946,12 @@ def main():
             "round rule": lambda x: int(round(x)),
         },
         "HEIGHT": {
-            "Value": weight,
+            "Value": height,
             "Display Name": "Height (in)",
             "round rule": lambda x: round(x, 2),
         },
         "WEIGHT": {
-            "Value": height,
+            "Value": weight,
             "Display Name": "Weight (lbs)",
             "round rule": lambda x: round(x, 2),
         },
@@ -967,12 +967,12 @@ def main():
         },
         "PRHCT": {
             "Value": prhct,
-            "Display Name": "Platelet Count (*10^9/L)",
+            "Display Name": "Hematocrit (%)",
             "round rule": lambda x: round(x, 2),
         },
         "PRPLATE": {
             "Value": prplate,
-            "Display Name": "Hematocrit (%)",
+            "Display Name": "Platelet Count (*10^9/L)",
             "round rule": lambda x: round(x, 2),
         },
         # this shouldnt run, dont give option
@@ -1120,14 +1120,16 @@ def main():
                     # bmi_unscaled = all_X_bmi_unscaled[:, -1]
                     # Build a small df for display
                     imp_display = {}
+                    num_cols_list = list(num_dict.keys())
                     for col in imp_cols:
+                        col_idx = num_cols_list.index(col)
                         ## Find index amongst num cols
-                        col_idx = 0
-                        for col_name in num_dict.keys():
-                            if col == col_name:
-                                break
-                            else:
-                                col_idx += 1
+                        # col_idx = 0
+                        # for col_name in num_dict.keys():
+                        #     if col == col_name:
+                        #         break
+                        #     else:
+                        #         col_idx += 1
                         raw_val = X_imputed[0, col_idx]
                         round_rule = num_dict[col]["round rule"]
                         imp_display[num_dict[col]["Display Name"]] = round_rule(raw_val)
