@@ -9,7 +9,7 @@ from src.preprocess import remove_prefix
 from app.shap_utils import (
     pretty_feature_name,
     feature_value_label,
-    combine_encoded_for_app,
+    compute_shap_data,
 )
 from app.config import CHOSEN_MODEL_DICT
 import app.utils as util
@@ -22,6 +22,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
 import matplotlib.patches as mpatches
+import hashlib
 
 
 #################### MAIN CLINICAL RESULTS ####################
@@ -1077,49 +1078,15 @@ def get_input_data():
     return input_data, num_dict, imp_cols
 
 
-def get_shap_plot(explainer, input_data, num_feats, pipeline):
-    expected_features = explainer.feature_names
-    input_data = input_data[expected_features]
-    shap_raw = explainer(input_data)
-    ## Combine one-hot encodeed values
-    shap_combined = combine_encoded_for_app(input_data, shap_raw)
-
-    n_feats = min(num_feats, input_data.shape[1])
-    num_name, num_pipe, num_cols = pipeline.transformers_[0]
-    assert num_name == "num"
-    scaler = num_pipe.named_steps["scaler"]
-
-    # numeric outputs after BMI step (hard-coded order)
-    num_out_cols = [
-        "AGE",
-        "PRALBUM",
-        "PRWBC",
-        "PRHCT",
-        "PRPLATE",
-        "OPERYR",
-        "OPTIME",
-        "BMI",
-    ]
-
-    # SHAP feature names after full pipeline
-    feat_names = list(shap_combined.feature_names)
-    # indices of numeric outputs in SHAP explanation
-    num_indices = [feat_names.index(col) for col in num_out_cols]
-    x_trans_row = shap_combined.data[0]
-    x_num_scaled = np.array([x_trans_row[i] for i in num_indices]).reshape(1, -1)  # type: ignore
-    # inverse MinMax scaling
-    x_num_original = scaler.inverse_transform(x_num_scaled)
-    num_original_series = pd.Series(x_num_original.ravel(), index=num_out_cols)
-
-    ##### MAKE PLOT ######
-    # phi contains SHAP values in log-odds scale
-    phi = shap_combined.values[0]
-    feat_names = np.array(shap_combined.feature_names)
-    disp_row = (
-        shap_combined.display_data[0]
-        if shap_combined.display_data is not None
-        else shap_combined.data[0]
-    )
+def create_shap_plot(shap_data, num_feats):
+    """
+    Create SHAP plot from pre-computed SHAP data.
+    This function is fast and can be called whenever num_feats changes.
+    """
+    phi = shap_data["phi"]
+    feat_names = shap_data["feat_names"]
+    disp_row = shap_data["disp_row"]
+    num_original_series = shap_data["num_original_series"]
 
     # sort by absolute impact
     order = np.argsort(-np.abs(phi))
@@ -1128,7 +1095,7 @@ def get_shap_plot(explainer, input_data, num_feats, pipeline):
     disp_row = disp_row[order]
 
     # choose k "explicit" features; aggregate the rest
-    k = min(n_feats, len(phi))
+    k = min(num_feats, len(phi))
 
     phi_main = phi[:k]
     feat_main = feat_names[:k]
@@ -1137,11 +1104,9 @@ def get_shap_plot(explainer, input_data, num_feats, pipeline):
     phi_tail = phi[k:]
 
     if len(phi_tail) > 0:
-        # sum remaining SHAP values (same units as phi)
         tail_sum = phi_tail.sum()
         tail_count = len(phi_tail)
 
-        # append aggregated "other features" entry
         phi_all = np.concatenate([phi_main, np.array([tail_sum])])
         feat_all = np.concatenate(
             [feat_main, np.array([f"{tail_count} other features"])]
@@ -1156,24 +1121,16 @@ def get_shap_plot(explainer, input_data, num_feats, pipeline):
     total_abs_contribution = np.sum(np.abs(phi_all))
 
     if total_abs_contribution > 0:
-        # Each feature's contribution as % of total absolute deviation
         phi_top = (phi_all / total_abs_contribution) * 100.0
     else:
-        # Edge case: all SHAP values are zero
         phi_top = np.zeros_like(phi_all)
 
     feat_top = feat_all
     disp_top = disp_all
 
-    # Calculate dynamic font sizes based on number of bars
+    # Calculate dynamic font sizes
     num_bars = len(phi_top)
-
-    # Y-tick label size: scale inversely with number of bars
-    # Range: 14pt (few bars) down to 9pt (many bars)
     ytick_fontsize = max(9, min(14, 14 - (num_bars - 5) * 0.15))
-
-    # Bar label size: slightly smaller than y-ticks
-    # Range: 12pt (few bars) down to 8pt (many bars)
     bar_label_fontsize = max(8, min(12, 12 - (num_bars - 5) * 0.15))
 
     fig, ax = plt.subplots(figsize=(12, 14))
@@ -1189,7 +1146,7 @@ def get_shap_plot(explainer, input_data, num_feats, pipeline):
                 if "(other features)" not in name
                 and name != f"{len(phi_tail)} other features"
                 else f"{name}"
-            )  # label for the aggregated bar
+            )
             for name, val in zip(feat_top, disp_top)
         ],
         fontsize=ytick_fontsize,
@@ -1213,31 +1170,24 @@ def get_shap_plot(explainer, input_data, num_feats, pipeline):
         fontsize=20,
     )
 
-    values = phi_top  # normalized percentage contributions
+    values = phi_top
     bar_lengths = np.array(values)
 
-    # extremes on each side
     max_right = np.max(bar_lengths[bar_lengths > 0], initial=0.0)
     max_left = np.min(bar_lengths[bar_lengths < 0], initial=0.0)
 
-    # Calculate total range
     value_range = max_right - max_left
 
-    # Use percentage-based padding (15% of total range)
-    # If range is 0 (all bars same sign), use absolute padding
     if value_range > 0:
-        padding_pct = 0.15  # 15% padding on each side
+        padding_pct = 0.15
         padding = value_range * padding_pct
     else:
-        # Fallback for edge case: all bars same sign
         max_abs = max(abs(max_right), abs(max_left))
-        padding = max(0.5, max_abs * 0.2)  # 20% of max value or minimum 0.5
+        padding = max(0.5, max_abs * 0.2)
 
-    # Calculate limits
     x_min = max_left - padding
     x_max = max_right + padding
 
-    # ensure non-zero width
     if x_max <= x_min:
         center = (max_left + max_right) / 2
         half_width = 0.5
@@ -1245,7 +1195,6 @@ def get_shap_plot(explainer, input_data, num_feats, pipeline):
 
     ax.set_xlim(x_min, x_max)
 
-    # add labels anchored at bar tips
     for bar, value in zip(bars, values):
         x = bar.get_width()
         y = bar.get_y() + bar.get_height() / 2
@@ -1304,7 +1253,9 @@ def show_clinical_results(display_name, folder_name, input_data):
             processed_data = remove_prefix(processed_data)
             for col in processed_data.columns:
                 processed_data[col] = pd.to_numeric(processed_data[col])
-
+            # Compute hash from processed_data (after transformation)
+            hash_string = f"{folder_name}_{processed_data.to_csv()}"
+            processed_data_hash = hashlib.md5(hash_string.encode()).hexdigest()
             ## predict
             probabilities = model.predict_proba(processed_data)[:, 1]
 
@@ -1359,16 +1310,6 @@ def show_clinical_results(display_name, folder_name, input_data):
             col_a2, col_b2 = st.columns(2)
 
             with col_a2:
-                # SHAP feature count input
-                n_feats = st.number_input(
-                    "Number of top features to display",
-                    min_value=5,
-                    max_value=input_data.shape[1],
-                    value=10,
-                    step=1,
-                    key=f"n_feats_{folder_name}",
-                )
-                # n_feats = 10
                 st.info(
                     """
                     **How to read this chart**
@@ -1403,13 +1344,28 @@ def show_clinical_results(display_name, folder_name, input_data):
                 )
 
             with col_b2:
+                # SHAP feature count input
+                n_feats = st.number_input(
+                    "Number of top features to display",
+                    min_value=5,
+                    max_value=input_data.shape[1],
+                    value=10,
+                    step=1,
+                    key=f"n_feats_{folder_name}",
+                )
+                st.markdown("")
+                # n_feats = 10
                 # SHAP plot
-                shap_fig = get_shap_plot(
+                # Compute SHAP data once (cached)
+                shap_data = compute_shap_data(
                     explainer,
                     processed_data,
-                    n_feats,
                     preprocessor,
+                    processed_data_hash,
+                    folder_name,
                 )
+                # Create plot (fast, regenerates only when n_feats changes)
+                shap_fig = create_shap_plot(shap_data, n_feats)
                 st.pyplot(shap_fig, bbox_inches="tight")
                 plt.close(shap_fig)
 

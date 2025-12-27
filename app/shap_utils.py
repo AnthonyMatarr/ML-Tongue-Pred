@@ -1,5 +1,8 @@
 from src.feat_importance import get_ohe_cols, combine_encoded
 import copy
+import numpy as np
+import pandas as pd
+import streamlit as st
 
 
 def split_catgeorical(feature_name, model_value):
@@ -332,3 +335,58 @@ def pretty_feature_name(name):
     }
 
     return feature_label_map.get(name, name)
+
+
+@st.cache_data
+def compute_shap_data(
+    _explainer, _input_data, _pipeline, processed_data_hash, outcome_name
+):
+    """
+    Compute SHAP values once and cache them.
+    processed_data_hash and outcome_nameis used to invalidate cache when input changes.
+
+    All parameters prefixed with _ to tell Streamlit not to hash them directly.
+    """
+    expected_features = _explainer.feature_names
+    input_data = _input_data[expected_features].copy()
+    shap_raw = _explainer(input_data)
+
+    # Combine one-hot encoded values
+    shap_combined = combine_encoded_for_app(input_data, shap_raw)
+
+    # Get scaler for inverse transform
+    num_name, num_pipe, num_cols = _pipeline.transformers_[0]
+    assert num_name == "num"
+    scaler = num_pipe.named_steps["scaler"]
+
+    # numeric outputs after BMI step (hard-coded order)
+    num_out_cols = [
+        "AGE",
+        "PRALBUM",
+        "PRWBC",
+        "PRHCT",
+        "PRPLATE",
+        "OPERYR",
+        "OPTIME",
+        "BMI",
+    ]
+
+    # Inverse transform numeric features
+    feat_names = list(shap_combined.feature_names)
+    num_indices = [feat_names.index(col) for col in num_out_cols]
+    x_trans_row = shap_combined.data[0]
+    x_num_scaled = np.array([x_trans_row[i] for i in num_indices]).reshape(1, -1)
+    x_num_original = scaler.inverse_transform(x_num_scaled)
+    num_original_series = pd.Series(x_num_original.ravel(), index=num_out_cols)
+
+    # Return all data needed for plotting
+    return {
+        "phi": shap_combined.values[0],
+        "feat_names": np.array(shap_combined.feature_names),
+        "disp_row": (
+            shap_combined.display_data[0]
+            if shap_combined.display_data is not None
+            else shap_combined.data[0]
+        ),
+        "num_original_series": num_original_series,
+    }
