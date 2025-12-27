@@ -43,7 +43,7 @@ def get_data(outcome_folder, file_dir=BASE_PATH / "data" / "processed/"):
     }
 
 
-def get_models(model_prefix_list, outcome, file_dir=BASE_PATH / "models"):
+def get_models(model_prefix_list, outcome, file_dir=BASE_PATH / "models" / "trained"):
     """
     For a given outcome, get all models that predict that outcome
     """

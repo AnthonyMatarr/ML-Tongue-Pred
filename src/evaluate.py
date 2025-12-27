@@ -41,10 +41,9 @@ def get_logspace_thresholds(y_proba, n_bins=4, lower=1e-5, upper=None):
     return thresholds
 
 
-def plot_risk_bar_dot(y_true, y_proba, thresholds, ax=None):
+def plot_risk_bar_dot(y_true, y_proba, thresholds, ax=None, y_max=1.0):
     """
-    Allocates predictions to bins, calculates outcome rate & mean prediction for each bin,
-    and makes a bar graph with risk curve overlay.
+    Create risk stratification plot with bar graph showing observed event rates and overlaid mean predictions per bin.
     """
     thresholds = np.asarray(thresholds, dtype=float).flatten()
     n_bins = len(thresholds) + 1
@@ -65,8 +64,15 @@ def plot_risk_bar_dot(y_true, y_proba, thresholds, ax=None):
             event_rates.append(y_true[mask].mean())
             mean_preds.append(y_proba[mask].mean())
 
-    # Label bins as "Bin 0", "Bin 1", ...
-    bins_labels = [f"Bin {i}" for i in range(n_bins)]
+    ## Label bins w/ thresholds
+    bins_labels = []
+    for i in range(n_bins):
+        if i == 0:
+            bins_labels.append(f"Bin {i}\n[0, {thresholds[0]:.4f})")
+        elif i == n_bins - 1:
+            bins_labels.append(f"Bin {i}\n[{thresholds[-1]:.4f}, 1]")
+        else:
+            bins_labels.append(f"Bin {i}\n[{thresholds[i-1]:.4f}, {thresholds[i]:.4f})")
 
     if ax is None:
         fig, ax = plt.subplots(figsize=(8, 4))
@@ -74,6 +80,8 @@ def plot_risk_bar_dot(y_true, y_proba, thresholds, ax=None):
     ax.plot(range(n_bins), mean_preds, "o-", color="C1", label="Avg. Predicted Risk")
     ax.set_xticks(range(n_bins))
     ax.set_xticklabels(bins_labels, rotation=0)
+    ax.set_ylim(0, y_max)
+    ax.set_yticks(np.linspace(0, y_max + (y_max / 10), 5))
     ax.set_ylabel("Fraction With Outcome / Mean Prediction")
     ax.set_xlabel("Risk Bin")
     ax.legend()
@@ -104,6 +112,25 @@ def get_cm(
 ):
     """
     Generate confusion matrix and (optionally) export it
+
+    Parameters
+    ---------
+    model_name: str
+        Specify name of model used to generate y_pred
+    outcome_name: str
+        Specify name of outcome that is being predicted
+    data_type: str
+        Specify subset of df
+        Usually one of [train, val, test]
+    y_true: numpy.ndarray
+        Array containing true binary outcome/target labels
+    y_pred: numpy.ndarray
+        Array containing predicted binary outcome/target labels
+    show_output: Optional boolean; defaults to False
+        Boolean flag specifying whether to display generated confusion matrix
+    results_path: Optional pathlib.Path; defaults to None
+        Path to directory where results are stored
+        If left None, will not write to memory
     """
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(figsize=(10, 7))
@@ -142,54 +169,33 @@ def get_discrimination_str(
     show_progress=False,
 ):
     """
-    Calculate a classification metric with 95% confidence interval using bootstrap resampling.
-
-    Computes a performance metric (e.g., AUROC, F1, accuracy) and its bootstrapped
-    confidence interval, returning a formatted string for reporting.
+    Calculate a value and 95% CI for a given metric using MLStakit.Bootstrapping
 
     Parameters
     ----------
-    *_ : tuple
-        Placeholder to prevent positional arguments (raises ValueError if used).
-    y_true : np.ndarray
-        True binary class labels (0 or 1).
-    y_proba : np.ndarray
-        Predicted probabilities for the positive class (continuous values in [0, 1]).
-    metric_str : str
-        Metric to calculate. Must be one of: 'f1', 'accuracy', 'recall', 'precision',
-        'roc_auc', 'average_precision', 'pr_auc', 'ici', 'brier'.
-    threshold : float
-        Probability threshold for converting predictions to hard labels.
-        Used for threshold-based metrics (F1, accuracy, recall, precision).
-    n_bootstraps : int, default=5000
-        Number of bootstrap iterations for confidence interval estimation.
-    random_state : int, default=SEED
-        Random seed for reproducibility of bootstrap sampling.
-    bin_thresholds : array-like, optional
-        Bin edges for calibration metrics (e.g., ICI). Only used when metric_str='ici'.
-    show_progress : bool, default=False
-        If True, displays a progress bar during bootstrap iterations.
+    y_true: numpy.ndarray
+        True binary class labels
+    y_proba: numpy.ndarray
+        Continues predicted probabilities
+    metric_str: str
+        Specify the metric type to get values for
+    threshold: float
+        Threshold value to use for converting probabilities into hard labels
+    n_bootstraps: Optional int; defaults to 5000
+        Number of iterations to run bootstrap method for
+    random_state: Optional int; defaults to SEED from src.config
+        Controls determinism
 
     Returns
     -------
-    str
-        Formatted string: '<metric_val> (<ci_lower>, <ci_upper>)' with values
-        rounded to 3 decimal places.
-
+    final_str: String of format
+        '<metric_val> (<ci_lower>, <ci_upper>)'
     Raises
     ------
-    ValueError
-        If positional arguments are provided.
-    ValueError
-        If metric_str is not one of the accepted values.
-
-    Notes
-    -----
-    - Uses MLStakit.Bootstrapping for percentile-based confidence intervals
-    - Confidence level is fixed at 95%
-    - Threshold-dependent metrics (F1, accuracy, recall, precision) use the
-      specified threshold to convert probabilities to binary predictions
-    - Calibration metrics (ICI) require bin_thresholds to be specified
+    ValueError:
+        -If positional arguments are passed
+        -If an unaccepted str type is passed. Must be one of:
+            'f1', 'accuracy', 'recall', 'precision', 'roc_auc', 'average_precision', 'pr_auc', 'ici', 'brier'
     """
     if _ != tuple():
         raise ValueError("This function does not take positional arguments")
@@ -224,43 +230,7 @@ def plot_ROC(
     y_true, y_proba, data_type, n_bootstraps=5000, seed=SEED, show_progress=False
 ):
     """
-    Plot ROC curve and calculate AUROC with confidence interval and optimal threshold.
-
-    Generates an ROC curve plot on the current matplotlib axes and computes the
-    area under the curve with bootstrapped 95% confidence intervals. Also determines
-    the optimal probability threshold using Youden's J statistic.
-
-    Parameters
-    ----------
-    y_true : array-like
-        True binary class labels (0 or 1).
-    y_proba : array-like
-        Predicted probabilities for the positive class (continuous values in [0, 1]).
-    data_type : str
-        Label for the dataset (e.g., 'Train', 'Test', 'Validation') used in the
-        plot legend.
-    n_bootstraps : int, default=5000
-        Number of bootstrap iterations for confidence interval estimation.
-    seed : int, default=SEED
-        Random seed for reproducibility of bootstrap sampling.
-    show_progress : bool, default=False
-        If True, displays a progress bar during bootstrap iterations.
-
-    Returns
-    -------
-    auc_string : str
-        Formatted AUROC with confidence interval: '<auc> (<ci_lower>-<ci_upper>)'
-        with values rounded to 3 decimal places.
-    optimal_threshold : float
-        Optimal probability threshold that maximizes Youden's J statistic
-        (sensitivity + specificity - 1). This threshold balances true positive
-        and false positive rates.
-
-    Notes
-    -----
-    - Adds a line to the current matplotlib axes; does not create a new figure
-    - Uses Youden's J statistic (max(TPR - FPR)) to identify optimal threshold
-    - Confidence intervals are computed using MLStakit.Bootstrapping at 95% level
+    Plot ROC curve, get AUROC w/ CIs, determine threshold for hard predictions
     """
     fpr, tpr, thresholds = roc_curve(y_true, y_proba)
     auc, lower_CI, upper_CI = Bootstrapping(
@@ -303,105 +273,76 @@ def evaluate_models(
     show_progress=False,
 ):
     """
-    Comprehensive evaluation of binary classification models across train/val/test sets.
-
-    For each model, this function:
-    1. Generates predicted probabilities and plots ROC curves
-    2. Calculates AUROC with bootstrapped confidence intervals
-    3. Determines optimal prediction threshold using Youden's J statistic
-    4. Computes discrimination metrics (F1, accuracy, recall, precision, Brier, ICI)
-    5. Creates calibration plots and risk stratification visualizations
-    6. Generates confusion matrices
-    7. Exports results, plots, and predictions for downstream use
+    Given an outcome, for each model:
+        generate probabilities, plot ROC, get AUROC, determine prediction threshold,
+        get discrimination metrics (f1, accuracy, recall, precision, brier, ici),
+        plot calibration curves, and get calibration metrics
 
     Parameters
     ----------
-    *_ : tuple
-        Placeholder to prevent positional arguments (raises ValueError if used).
-    model_dict : dict of {str: sklearn-compatible model}
-        Maps model names to trained models (typically CalibratedClassifierCV objects).
-        Each model must implement predict_proba().
-    outcome_name : str
-        Name of the outcome being predicted. Used for file naming and plot titles.
-    X_train : pd.DataFrame
-        Training features (excluding target variable).
-    y_train : np.ndarray
-        Training binary labels (0 or 1).
-    X_val : pd.DataFrame
-        Validation features (excluding target variable).
-    y_val : np.ndarray
-        Validation binary labels (0 or 1).
-    X_test : pd.DataFrame, optional
-        Test features (excluding target variable). If None, test evaluation is skipped.
-    y_test : np.ndarray, optional
-        Test binary labels (0 or 1). If None, test evaluation is skipped.
-    n_bins : int, default=4
-        Number of risk stratification bins for calibration analysis.
-    results_path : pathlib.Path, optional
-        Directory path for saving results, figures, and model artifacts.
-        If None, results are not saved to disk.
-    threshold_str : {'val', 'train'}, default='val'
-        Specifies which dataset to use for determining the prediction threshold.
-        'val' uses validation set (recommended), 'train' uses training set.
-    n_bootstraps : int, default=5000
-        Number of bootstrap iterations for confidence interval estimation.
-    show_cm : bool, default=False
-        If True, displays confusion matrix plots.
-    show_roc : bool, default=False
-        If True, displays ROC curve plots.
-    show_cal : bool, default=False
-        If True, displays calibration and risk stratification plots.
-    show_progress : bool, default=False
-        If True, shows progress bars during bootstrap iterations.
+    model_dict: dict
+        Dictionary containing mapping model names to trained models
+        Format:
+            {
+                <model_name> str: model sklearn.calibration.CalibratedClassifierCV
+            }
+    outcome_name: str
+        String specifying outcome whose models are being evaluated
+    X_train: pandas Dataframe
+        Dataframe containing tabular training data (excluding target variable)
+    y_train: numpy.ndarray
+        Array containing training binary outcome/target variable
+    X_val: pd.Dataframe
+        Dataframe containing tabular validation data (excluding target variable)
+    y_val: numpy.ndarray
+        Array containing validation binary outcome/target variable
+    X_test: Optional pd.Dataframe; defaults to None
+        Dataframe containing tabular testing data (excluding target variable)
+        If left None, will not evaluate test data
+    y_test: Optional numpy.ndarray; defaults to None
+        Array containing testing binary outcome/target variable
+        If left None, will not evaluate test data
+    results_path: Optional pathlib.Path; defaults to None
+        Path to where results are saved
+        If left None will not save results
+    threshold_str: Optional str; defaults to "val"
+        Determines which set to use to determine hard prediction threshold
+        One of ['train', 'val']
+    n_bootstraps: Optional int; defaults to 5000
+        Number of bootstraps for metric CI calculation
+    show_cm: Optional boolean; defaults to False
+        Boolean flag indicating whether to output confusion matrices
+    show_roc: Optional boolean; defaults to False
+        Boolean flag indicating whether to output ROC plots
+    show_cal: Optional boolean; defaults to False
+        Boolean flag indicating whether to output calibration curve plots
 
     Returns
     -------
-    dict{str: dict{str: dict{str: str or float}}}
-        Nested dictionary containing evaluation metrics for each model and dataset.
-        Structure:
-        {
-            'train': {
-                <model_name>: {
-                    'AUROC (95% CI)': '<auc> (<ci_lower>, <ci_upper>)',
-                    'Threshold': <float>,
-                    'f1': '<f1> (<ci_lower>, <ci_upper>)',
-                    'accuracy': '<acc> (<ci_lower>, <ci_upper>)',
-                    'recall': '<recall> (<ci_lower>, <ci_upper>)',
-                    'precision': '<prec> (<ci_lower>, <ci_upper>)',
-                    'brier': '<brier> (<ci_lower>, <ci_upper>)',
-                    'ici': '<ici> (<ci_lower>, <ci_upper>)'
+    class_report_dict: dict
+        Dictionary containing metrics for each of train, val, and test sets
+        Format:
+            {
+                'train': {
+                    <model_name> str: {
+                        <metric_name> str: <metric_val> str or float
+                    }
+                },
+                'val': {
+                    <model_name> str: {
+                        <metric_name> str: <metric_val> str or float
+                    }
                 }
-            },
-            'val': {...},  # Same structure as 'train'
-            'test': {...}  # Same structure, only if X_test/y_test provided
-        }
-
+                'test': {
+                    <model_name> str: {
+                        <metric_name> str: <metric_val> str or float
+                    }
+                }
+            }
     Raises
     ------
-    ValueError
-        If positional arguments are provided.
-    ValueError
-        If only one of X_test or y_test is None (both must be provided or omitted).
-
-    Notes
-    -----
-    - Threshold is determined using Youden's J statistic (max sensitivity + specificity)
-    - Risk bins use log-scale spacing by default for better stratification
-    - For models named 'stack', additional artifacts are saved for use in interface:
-      * Bin thresholds to BASE_PATH/app/bin_thresholds/{outcome_name}.npz
-      * All predictions to BASE_PATH/app/all_preds/{outcome_name}.parquet
-    - Figures are organized by type and saved to results_path/figures/{type}/{outcome_name}/
-    - All metrics use bootstrapped 95% confidence intervals
-    - ICI (Integrated Calibration Index) uses the log-scale bin thresholds
-    - If results_path is provided, existing files are overwritten with warnings
-
-    Files Created (if results_path specified)
-    ------------------------------------------
-    - ROC curves: results_path/figures/ROC/{outcome_name}/{model_name}_ROC.pdf
-    - Risk stratification: results_path/figures/risk_bins/{outcome_name}/{model_name}.pdf
-    - Confusion matrices: results_path/figures/confusion_matrix/{outcome_name}/{model_name}_{dataset}.pdf
-    - Bin thresholds (stack only): BASE_PATH/app/bin_thresholds/{outcome_name}.npz
-    - All predictions (stack only): BASE_PATH/app/all_preds/{outcome_name}.parquet
+    ValueError:
+        If positional arguments are given
     """
     if _ != tuple():
         raise ValueError("This function does not take positional arguments")
@@ -512,8 +453,21 @@ def evaluate_models(
         ## log-scale ##
         bin_thresholds = get_logspace_thresholds(train_val_probs, n_bins=n_bins)
         ################
-        if results_path and model_name == "stack":
-            bins_path = BASE_PATH / "app" / "bin_thresholds" / f"{outcome_name}.npz"
+        if results_path:
+            # bins_path = (
+            #     BASE_PATH
+            #     / "app"
+            #     / "bin_thresholds"
+            #     / outcome_name
+            #     / f"{model_name}.npz"
+            # )
+            bins_path = (
+                results_path
+                / "app"
+                / "bin_thresholds"
+                / outcome_name
+                / f"{model_name}.npz"
+            )
             if bins_path.exists():
                 print(f"Over-writing bin data at path {bins_path}")
                 bins_path.unlink()
@@ -524,7 +478,20 @@ def evaluate_models(
             )
         # ================== PLOT RISK BARS ===================
         if X_test is not None:
-            ax = plot_risk_bar_dot(y_test, y_proba_test, bin_thresholds)
+            match outcome_name:
+                case "asp":
+                    y_max = 0.35
+                case "bleed":
+                    y_max = 0.6
+                case "mort":
+                    y_max = 0.05
+                case "reop":
+                    y_max = 0.3
+                case "surg":
+                    y_max = 0.4
+                case _:
+                    raise ValueError("Un-recognized outcome name")
+            ax = plot_risk_bar_dot(y_test, y_proba_test, bin_thresholds, y_max=y_max)
             plt.title(f"{model_name} Test Risk Stratification: {outcome_name}")
             if results_path:
                 bin_plot_path = (
@@ -546,16 +513,24 @@ def evaluate_models(
         ################################### All predictions (for interface) #############################################
         #################################################################################################################
         ## ONLY compute if export is desired
-        if results_path and model_name == "stack":
+        if results_path:
             # file path
-            all_pred_path = BASE_PATH / "app" / "all_preds" / f"{outcome_name}.parquet"
+            all_pred_path = (
+                results_path
+                / "app"
+                / "all_preds"
+                / outcome_name
+                / f"{model_name}.parquet"
+            )
             if all_pred_path.exists():
                 print(f"Over-writing all preds at path {all_pred_path}")
                 all_pred_path.unlink()
             all_pred_path.parent.mkdir(exist_ok=True, parents=True)
             # get preds
-            all_probs = np.concatenate([y_proba_train, y_proba_val, y_proba_test])
-            all_labels = np.concatenate([y_train, y_val, y_test])  # type: ignore
+            # all_probs = np.concatenate([y_proba_train, y_proba_val, y_proba_test])
+            all_probs = y_proba_test
+            # all_labels = np.concatenate([y_train, y_val, y_test])  # type: ignore
+            all_labels = y_test
             all_predictions = pd.DataFrame({"prob": all_probs, "label": all_labels})
             all_predictions.to_parquet(all_pred_path)
         #################################################################################################################
