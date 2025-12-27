@@ -1359,6 +1359,16 @@ def show_clinical_results(display_name, folder_name, input_data):
             col_a2, col_b2 = st.columns(2)
 
             with col_a2:
+                # SHAP feature count input
+                n_feats = st.number_input(
+                    "Number of top features to display",
+                    min_value=5,
+                    max_value=input_data.shape[1],
+                    value=10,
+                    step=1,
+                    key=f"n_feats_{folder_name}",
+                )
+                # n_feats = 10
                 st.info(
                     """
                     **How to read this chart**
@@ -1391,16 +1401,6 @@ def show_clinical_results(display_name, folder_name, input_data):
                     (Platt scaling) on raw model output that preserves feature importance ranking and direction.
                     """
                 )
-                # SHAP feature count input
-                n_feats = st.number_input(
-                    "Number of top features to display",
-                    min_value=5,
-                    max_value=input_data.shape[1],
-                    value=10,
-                    step=1,
-                    key=f"n_feats_{folder_name}",
-                )
-                # n_feats = 10
 
             with col_b2:
                 # SHAP plot
