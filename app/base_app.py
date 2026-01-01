@@ -90,12 +90,18 @@ def main():
     ############# Output Section #############
     # Button triggers prediction and stores results in session state
     if st.button("Predict Outcomes", type="primary", key="pred_btn"):
-        st.session_state.predictions_made = True
-        st.session_state.selected_outcomes = selected_outcomes
-        st.session_state.input_data = input_data
-        st.session_state.num_dict = num_dict
-        st.session_state.imp_cols = imp_cols
-        st.session_state.last_input_hash = current_input_hash
+        if display.check_filter_cols(input_data):
+            st.session_state.predictions_made = True
+            st.session_state.selected_outcomes = selected_outcomes
+            st.session_state.input_data = input_data
+            st.session_state.num_dict = num_dict
+            st.session_state.imp_cols = imp_cols
+            st.session_state.last_input_hash = current_input_hash
+        else:
+            st.error(
+                "At least one *Resection Procedure* must be selected before predicting outcomes."
+            )
+            st.session_state.predictions_made = False
 
     # Display results if predictions have been made
     if st.session_state.predictions_made:

@@ -1277,6 +1277,19 @@ def create_shap_plot(shap_data, num_feats):
     return fig
 
 
+def check_filter_cols(input_data):
+    vars_to_check = [
+        "Partial Glossectomy (Hemiglossectomy_Subtotal)",
+        "Composite_Extended Glossectomy",
+        "Total Glossectomy (Complete Tongue Removal)",
+        "Excision of Tongue Lesions (Minor)",
+    ]
+    for var in vars_to_check:
+        if input_data[var.upper()].iloc[0] == 1:
+            return True
+    return False
+
+
 def show_clinical_results(display_name, folder_name, input_data):
     """
     Render clinical output.
