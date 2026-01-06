@@ -32,7 +32,7 @@ def main():
         layout="wide",
     )
     init_session_state()
-    st.title("PRO-TONGUE: Post-resection Outcome prediction for Tongue cancer")
+    st.title("PRO-TONGUE: Post-Resection Outcome prediction for Tongue cancer surgery")
     st.markdown("Predict 30-day complications after glossectomy for tongue cancer.")
     st.info(
         "Adjust all fields to match your patient. Default values are set arbitrarily. To reset to default values, refresh the page. "
