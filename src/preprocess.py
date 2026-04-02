@@ -84,24 +84,31 @@ def remove_prefix(df):
 
 
 def transform_export_data(
-    X, y, outcome_name, preprocessor, data_path=None, pipeline_path=None
+    df,
+    x_cols,
+    target_col_name,
+    preprocessor,
+    data_path=None,
+    pipeline_path=None,
 ):
     """
     Split, preprocess, and export train/val/test datasets for a given outcome.
 
-    Performs stratified train-val-test split (70-15-15), fits the preprocessor on
-    training data, transforms all splits, converts columns to numeric types, and
-    optionally exports the processed datasets and fitted preprocessor to disk.
+    Splits into development (Operation Yr: 2008-2023) and evaluation (Pperation Yr: 2024) data
+    and further performs stratified train-val split (80-20) on development set.
+
+    Fits the preprocessor on training data, transforms all splits, converts columns to numeric types,
+    and optionally exports the processed datasets and fitted preprocessor to disk.
 
     Parameters
     ----------
-    X : pd.DataFrame
-        Feature matrix containing predictor variables for the full dataset.
-    y : pd.Series
-        Target variable (binary outcome labels) corresponding to X.
-    outcome_name : str
-        Name identifier for the outcome (e.g., 'asp', 'mort'). Used for file naming
-        and directory structure when saving outputs.
+    df : pd.DataFrame
+        Feature matrix containing predictor variables for the full dataset, along with
+        all target variables. Columns will be further subset with `x_cols`
+    x_cols: list[str]
+        Names of predictor variables
+    target_col_name : str
+        Name of target column in X
     preprocessor : sklearn.pipeline.Pipeline or sklearn.compose.ColumnTransformer
         Scikit-learn preprocessing pipeline to fit on training data and transform
         all splits. Must implement fit(), transform(), and get_feature_names_out().
@@ -137,13 +144,18 @@ def transform_export_data(
     UserWarning
         Raised when overwriting existing data or preprocessor files.
     """
-    ##Get train set
-    X_train, X_temp, y_train, y_temp = train_test_split(
-        X, y, test_size=0.3, random_state=SEED, stratify=y
-    )
-    ##Get val + test set
-    X_val, X_test, y_val, y_test = train_test_split(
-        X_temp, y_temp, test_size=0.5, random_state=SEED, stratify=y_temp
+    development_set = df[df["OPERYR"] != 2024].copy()
+    test_set = df[df["OPERYR"] == 2024].copy()
+    assert len(development_set) + len(test_set) == len(df)
+
+    X_dev = development_set[x_cols].copy()
+    y_dev = development_set[target_col_name].copy()
+    X_test = test_set[x_cols].copy()
+    y_test = test_set[target_col_name].copy()
+
+    # split development into train and validation
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_dev, y_dev, test_size=0.15, random_state=SEED, stratify=y_dev
     )
 
     preprocessor.fit(X_train)
@@ -189,7 +201,7 @@ def transform_export_data(
 
     ### Save processed data ###
     if data_path:
-        data_path = data_path / outcome_name
+        data_path = data_path / target_col_name
         if data_path.exists():
             warnings.warn(f"Over-writing tabular data at path: {data_path}")
             rmtree(data_path)
@@ -205,7 +217,7 @@ def transform_export_data(
 
     ### Save fitted preprocessor/pipeline ###
     if pipeline_path:
-        preprocessor_path = pipeline_path / f"{outcome_name}_pipeline.joblib"
+        preprocessor_path = pipeline_path / f"{target_col_name}_pipeline.joblib"
         if preprocessor_path.exists():
             warnings.warn(f"Over-writing tabular data at path: {data_path}")
             preprocessor_path.unlink()

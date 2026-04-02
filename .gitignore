@@ -1,0 +1,10 @@
+## Data
+/data
+
+## Extras
+src/config.py
+src/__pycache__
+logs/
+
+## Results
+results/
