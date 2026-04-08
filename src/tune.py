@@ -14,14 +14,13 @@ from pathlib import Path
 
 import torch
 from sklearn.model_selection import StratifiedKFold, cross_val_score
-from sklearn.metrics import roc_auc_score
 from sklearn.svm import SVC
 from lightgbm import LGBMClassifier
 from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.exceptions import ConvergenceWarning
 from src.data_utils import get_data
-
+from sklearn.metrics import roc_auc_score, average_precision_score
 
 # Determinism
 torch.manual_seed(SEED)
@@ -33,43 +32,38 @@ if torch.cuda.is_available():
 
 def set_up_logger(log_file_path):
     """
-    Create file-backed loggers for this module and for Optuna.
+    Create console-backed loggers for this module and for Optuna.
 
     Parameters
     ----------
     log_file_path : str or pathlib.Path
-        Destination log file. If the file already exists, it is overwritten.
+        Log path used only to derive a stable logger name.
 
     Returns
     -------
-    tuple[logging.Logger, logging.Logger, logging.FileHandler]
-        The module logger, the Optuna logger, and the shared file handler.
+    tuple[logging.Logger, logging.Logger, logging.StreamHandler]
+        The module logger, the Optuna logger, and the shared stream handler.
     """
-    ############ Set up paths ############
-    if log_file_path.exists():
-        warnings.warn(f"Over-writing log at path: {log_file_path}")
-        log_file_path.unlink()
-    log_file_path.parent.mkdir(exist_ok=True, parents=True)
     ############ Set up logger ############
     logger_name = f"tune.{log_file_path.resolve()}"
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.INFO)
     logger.propagate = False
     logger.handlers.clear()
-    file_handler = logging.FileHandler(log_file_path, mode="a")
-    file_handler.setFormatter(
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(
         logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
     )
-    logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
 
     optuna_logger = optuna.logging.get_logger("optuna")
     optuna_logger.setLevel(logging.INFO)
     optuna_logger.propagate = False
     optuna_logger.handlers.clear()
-    optuna_logger.addHandler(file_handler)
+    optuna_logger.addHandler(stream_handler)
     optuna.logging.disable_default_handler()
 
-    return logger, optuna_logger, file_handler
+    return logger, optuna_logger, stream_handler
 
 
 def log_tuning_results(logger, scoring, study):
@@ -103,70 +97,11 @@ def log_tuning_results(logger, scoring, study):
     logger.info("*" * 100)
 
 
-######################################## NEURAL NETWORK ########################################
-def build_nn_estimator(trial):
+def make_objective(
+    X_train, y_train, model_builder, scoring="average_precision", cv_jobs=1
+):
     """
-    Build a neural-network classifier from an Optuna trial.
-
-    Parameters
-    ----------
-    trial : optuna.trial.Trial
-        Trial object used to sample neural-network hyperparameters.
-
-    Returns
-    -------
-    TorchNNClassifier
-        Configured neural-network estimator.
-    """
-    n_layers = trial.suggest_int("n_layers", 2, 3)
-    ### Hidden Layers ###
-    hl_1 = trial.suggest_int("hl_1", 64, 384)
-    hl_2 = trial.suggest_int("hl_2", 64, 384)
-    h_sizes = [hl_1, hl_2]
-    if n_layers == 3:
-        hl_3 = trial.suggest_int("hl_3", 64, 384)
-        h_sizes.append(hl_3)
-
-    ### Dropouts ###
-    dr_1 = trial.suggest_float("dr_1", 0.05, 0.6)
-    dr_2 = trial.suggest_float("dr_2", 0.05, 0.6)
-    dropouts = [dr_1, dr_2]
-    if n_layers == 3:
-        dr_3 = trial.suggest_float("dr_3", 0.05, 0.6)
-        dropouts.append(dr_3)
-
-    ####Activation ###
-    act_name = trial.suggest_categorical("act_func_str", ["relu", "leaky_relu"])
-    ### Epochs ###
-    num_epochs = trial.suggest_int("num_epochs", 20, 120)
-
-    ### Optimizer ####
-    # opt_choice = trial.suggest_categorical("optimizer", ["adam", "adamw"])
-    opt_choice = "adamw"
-    lr = trial.suggest_float("lr", 3e-4, 3e-2, log=True)
-    wd = trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True)
-
-    ##Batch size
-    bs = trial.suggest_categorical("batch_size", [64, 128, 256, 512])
-
-    nn_clf = TorchNNClassifier(
-        hidden_size_list=h_sizes,
-        dropouts=dropouts,
-        activation_name=act_name,
-        lr=lr,
-        weight_decay=wd,
-        epochs=num_epochs,
-        batch_size=bs,
-        optimizer_str=opt_choice,
-        device=DEVICE,
-        seed=SEED,
-    )
-    return nn_clf
-
-
-def make_objective_nn(X_train, y_train, scoring):
-    """
-    Create an Optuna objective function for neural-network tuning.
+    Create an Optuna objective function for non-neural-network models.
 
     Parameters
     ----------
@@ -174,7 +109,9 @@ def make_objective_nn(X_train, y_train, scoring):
         Training features used during cross-validation.
     y_train : pandas.Series or numpy.ndarray
         Training labels used during cross-validation.
-    scoring : str
+    model_builder : callable
+        Function that accepts an Optuna trial and returns an estimator.
+    scoring : str, default="average_precision"
         Scikit-learn scoring metric passed to ``cross_val_score``.
 
     Returns
@@ -182,88 +119,24 @@ def make_objective_nn(X_train, y_train, scoring):
     callable
         Objective function that Optuna can optimize.
     """
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
 
     def objective(trial):
-        clf = build_nn_estimator(trial)
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+        model = model_builder(trial)
         scores = cross_val_score(
-            clf, X_train, y_train, scoring=scoring, cv=skf, n_jobs=1
+            model,
+            X_train,
+            y_train,
+            scoring=scoring,
+            cv=skf,
+            n_jobs=cv_jobs,
         )
-        return np.round(np.mean(scores), 4)
+        return float(np.mean(scores))
 
     return objective
 
 
-def tune_model_nn(
-    *_,
-    X_train,
-    y_train,
-    outcome_name,
-    scoring,
-    log_file_path,
-    n_trials,
-):
-    """
-    Tune a neural-network model for a single outcome with Optuna.
-
-    Parameters
-    ----------
-    X_train : pandas.DataFrame or numpy.ndarray
-        Training features.
-    y_train : pandas.Series or numpy.ndarray
-        Training labels.
-    outcome_name : str
-        Name of the outcome being tuned.
-    scoring : str
-        Scikit-learn scoring metric passed to ``cross_val_score``.
-    log_file_path : str or pathlib.Path
-        Path to the log file written during tuning.
-    n_trials : int
-        Number of Optuna trials to run.
-
-    Returns
-    -------
-    None
-
-    Raises
-    ------
-    ValueError:
-        If positional arguments are given
-    """
-    if _ != tuple():
-        raise ValueError("This func does not take positional args")
-    ## Set up logging
-    logger, optuna_logger, file_handler = set_up_logger(log_file_path)
-
-    try:
-        # Create study
-        study = optuna.create_study(
-            study_name=f"NN_{outcome_name}_study",
-            direction="maximize",
-            sampler=optuna.samplers.TPESampler(seed=SEED),
-            pruner=optuna.pruners.HyperbandPruner(min_resource=5, reduction_factor=3),
-        )
-
-        ############ Run optimizer ############
-        study.optimize(
-            make_objective_nn(X_train, y_train, scoring),
-            n_trials=n_trials,
-        )
-        result_dict = {
-            "scoring": scoring,
-            "best_score": study.best_value,
-            "best_params": study.best_params,
-        }
-        log_tuning_results(logger, scoring, study)
-    finally:
-        ############ Close logger ############
-        logger.removeHandler(file_handler)
-        optuna_logger.removeHandler(file_handler)
-        file_handler.close()
-    return result_dict
-
-
-######################################## SVC, LGBM, LR, XGB MODELS ########################################
+######################################## MODEL BUILDERS ########################################
 def lr_model_builder(trial):
     """
     Build a logistic-regression classifier from an Optuna trial.
@@ -324,15 +197,15 @@ def lightgbm_model_builder(trial):
     """
     ######### Get params ###########
     ##Core params
-    learning_rate = trial.suggest_float("learning_rate", 0.005, 0.3, log=True)
+    learning_rate = trial.suggest_float("learning_rate", 1e-3, 0.3, log=True)
     n_estimators = trial.suggest_int("n_estimators", 100, 1500)
     ##Tree shape + complexity
-    max_depth = trial.suggest_categorical("max_depth", [-1, 3, 4, 5, 6, 8, 10, 12])
+    max_depth = trial.suggest_categorical("max_depth", [-1, 2, 3, 4, 5, 6, 8, 10, 12])
     if max_depth < 0:
         max_leaves = 255
     else:
         max_leaves = min(255, 2**max_depth)
-    min_leaves = 12
+    min_leaves = 6
     if min_leaves > max_leaves:
         max_leaves = min_leaves
     num_leaves = trial.suggest_int("num_leaves", min_leaves, max_leaves)
@@ -353,8 +226,8 @@ def lightgbm_model_builder(trial):
     )  # 1.0 samples all
 
     # Regularization
-    lambda_l1 = trial.suggest_float("lambda_l1", 0.0, 25.0)
-    lambda_l2 = trial.suggest_float("lambda_l2", 0.0, 25.0)
+    lambda_l1 = trial.suggest_float("lambda_l1", 1e-5, 25.0, log=True)
+    lambda_l2 = trial.suggest_float("lambda_l2", 1e-5, 25.0, log=True)
 
     # Binning --> More bins may improve accuracy but cost more resources
     max_bin = trial.suggest_int("max_bin", 128, 255)
@@ -391,12 +264,12 @@ def lightgbm_model_builder(trial):
     return clf
 
 
-def svc_model_builder(trial):
+def svc_model_builder(trial, probability=False):
     """
     Build an ``sklearn.svm.SVC`` classifier from an Optuna trial.
     """
     ######### Get params ###########
-    C = trial.suggest_float("C", 1e-3, 1e3, log=True)
+    C = trial.suggest_float("C", 1e-3, 50, log=True)
 
     kernel = trial.suggest_categorical("kernel", ["linear", "poly", "rbf"])
 
@@ -437,7 +310,7 @@ def svc_model_builder(trial):
         gamma=gamma,
         coef0=coef0,
         shrinking=shrinking,
-        probability=False,  # Outputs will be calibrated later
+        probability=probability,  # False on tuning, can always set True or calibrate later
         class_weight={0: 1, 1: pos_weight},
         random_state=SEED,
         cache_size=1000,
@@ -445,7 +318,6 @@ def svc_model_builder(trial):
     return clf
 
 
-# ========================> XGBOOST
 def xgb_model_builder(trial):
     """
     Build an XGBoost classifier from an Optuna trial.
@@ -455,8 +327,8 @@ def xgb_model_builder(trial):
     max_depth = trial.suggest_int("max_depth", 2, 10)
 
     gamma = trial.suggest_float("gamma", 0.0, 10.0)
-    reg_alpha = trial.suggest_float("reg_alpha", 0.0, 20.0)
-    reg_lambda = trial.suggest_float("reg_lambda", 0.0, 50.0)
+    reg_alpha = trial.suggest_float("reg_alpha", 1e-5, 20.0, log=True)
+    reg_lambda = trial.suggest_float("reg_lambda", 1e-5, 25.0, log=True)
 
     subsample = trial.suggest_float("subsample", 0.5, 1.0)
     colsample_bytree = trial.suggest_float("colsample_bytree", 0.5, 1.0)
@@ -486,38 +358,72 @@ def xgb_model_builder(trial):
     )
 
 
-def make_objective(X_train, y_train, model_builder, scoring="average_precision"):
+def nn_model_builder(trial):
     """
-    Create an Optuna objective function for non-neural-network models.
+    Build a neural-network classifier from an Optuna trial.
 
     Parameters
     ----------
-    X_train : pandas.DataFrame or numpy.ndarray
-        Training features used during cross-validation.
-    y_train : pandas.Series or numpy.ndarray
-        Training labels used during cross-validation.
-    model_builder : callable
-        Function that accepts an Optuna trial and returns an estimator.
-    scoring : str, default="average_precision"
-        Scikit-learn scoring metric passed to ``cross_val_score``.
+    trial : optuna.trial.Trial
+        Trial object used to sample neural-network hyperparameters.
 
     Returns
     -------
-    callable
-        Objective function that Optuna can optimize.
+    TorchNNClassifier
+        Configured neural-network estimator.
     """
-    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=SEED)
+    n_layers = trial.suggest_int("n_layers", 2, 3)
+    ### Hidden Layers ###
+    hl_1 = trial.suggest_int("hl_1", 32, 384)
+    hl_2 = trial.suggest_int("hl_2", 32, 384)
+    h_sizes = [hl_1, hl_2]
+    if n_layers == 3:
+        hl_3 = trial.suggest_int("hl_3", 32, 384)
+        h_sizes.append(hl_3)
 
-    def objective(trial):
-        model = model_builder(trial)
-        scores = cross_val_score(
-            model, X_train, y_train, scoring=scoring, cv=skf, n_jobs=1
-        )
-        return np.round(np.mean(scores), 4)
+    ### Dropouts ###
+    dr_1 = trial.suggest_float("dr_1", 0.05, 0.6)
+    dr_2 = trial.suggest_float("dr_2", 0.05, 0.6)
+    dropouts = [dr_1, dr_2]
+    if n_layers == 3:
+        dr_3 = trial.suggest_float("dr_3", 0.05, 0.6)
+        dropouts.append(dr_3)
 
-    return objective
+    ####Activation ###
+    act_name = trial.suggest_categorical("act_func_str", ["relu", "leaky_relu"])
+    if act_name == "leaky_relu":
+        neg_slope = trial.suggest_float("neg_slope", 1e-3, 1e-1, log=True)
+    else:
+        neg_slope = 0.01  # unused
+    ### Epochs ###
+    num_epochs = trial.suggest_int("num_epochs", 20, 300)
+
+    ### Optimizer ####
+    # opt_choice = trial.suggest_categorical("optimizer", ["adam", "adamw"])
+    opt_choice = "adamw"
+    lr = trial.suggest_float("lr", 3e-4, 3e-2, log=True)
+    wd = trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True)
+
+    ##Batch size
+    bs = trial.suggest_categorical("batch_size", [64, 128, 256, 512])
+
+    nn_clf = TorchNNClassifier(
+        hidden_size_list=h_sizes,
+        dropouts=dropouts,
+        activation_name=act_name,
+        lr=lr,
+        weight_decay=wd,
+        epochs=num_epochs,
+        batch_size=bs,
+        optimizer_str=opt_choice,
+        device=DEVICE,
+        seed=SEED,
+        neg_slope=neg_slope,
+    )
+    return nn_clf
 
 
+######################################## FOR ALL MODELS ########################################
 def tune_single_model_outcome(
     *_,
     model_builder,
@@ -527,6 +433,7 @@ def tune_single_model_outcome(
     y_train,
     scoring,
     log_file_path,
+    cv_jobs,
     n_trials=500,
 ):
     """
@@ -550,7 +457,8 @@ def tune_single_model_outcome(
         Path to the log file written during tuning.
     n_trials : int, default=500
         Number of Optuna trials to run.
-
+    cv_jobs: str
+        Number of parallel cross-val jobs
     Returns
     -------
     dict
@@ -564,7 +472,7 @@ def tune_single_model_outcome(
     if _ != tuple():
         raise ValueError("This func does not take positional args")
     ## Set Up logger
-    logger, optuna_logger, file_handler = set_up_logger(log_file_path)
+    logger, optuna_logger, stream_handler = set_up_logger(log_file_path)
     try:
         ############ Run for single outcome ############
         with warnings.catch_warnings():
@@ -573,10 +481,10 @@ def tune_single_model_outcome(
                 study_name=f"{model_abrv}_{outcome_name}_study",
                 direction="maximize",
                 sampler=optuna.samplers.TPESampler(seed=SEED),
-                pruner=optuna.pruners.HyperbandPruner(),
+                pruner=optuna.pruners.NopPruner(),  # objective func returns no intermediate values
             )
             study.optimize(
-                make_objective(X_train, y_train, model_builder, scoring),  # type: ignore
+                make_objective(X_train, y_train, model_builder, scoring, cv_jobs),  # type: ignore
                 n_trials=n_trials,
             )
             result_dict = {
@@ -587,19 +495,18 @@ def tune_single_model_outcome(
         log_tuning_results(logger, scoring, study)
     finally:
         ############ Close logger ############
-        logger.removeHandler(file_handler)
-        optuna_logger.removeHandler(file_handler)
-        file_handler.close()
+        logger.removeHandler(stream_handler)
+        optuna_logger.removeHandler(stream_handler)
+        stream_handler.close()
     return result_dict
 
 
-######################################## FOR ALL MODELS ########################################
 def get_prelim_results(
     *_,
-    results_dict,
+    best_params,
+    outcome_data,
     model_builder,
     model_abrv,
-    outcome_dict,
     model_save_dir=None,
 ):
     """
@@ -607,21 +514,9 @@ def get_prelim_results(
 
     Parameters
     ----------
-    results_dict : dict
-        Mapping from outcome names to tuning results.
-        Format:
-        {
-            outcome_type (str): {
-                'best_score': float,
-                'best_params': dict
-            }
-        }
-    model_builder : callable
-        Function that accepts an Optuna trial and returns an estimator.
-
-    model_abrv : str
-        Abbreviation of the model being evaluated.
-    outcome_dict : dict
+    best_params : dict
+        Mapping from param string to param values from tuning stage
+    outcome_data : dict
         Mapping from outcome names to train/validation/test splits.
         Format:
         {
@@ -634,8 +529,14 @@ def get_prelim_results(
                 'y_test': pandas dataframe
             }
         }
+    model_builder : callable
+        Function that accepts an Optuna trial and returns an estimator.
+
+    model_abrv : str
+        Abbreviation of the model being evaluated.
+
     model_save_dir : pathlib.Path or None, default=None
-        Directory where fitted models are saved. If ``None``, models are not saved.
+        Directory where fitted models are saved. If `None`, models are not saved.
 
     Returns
     -------
@@ -649,75 +550,59 @@ def get_prelim_results(
     if _ != tuple():
         raise ValueError("This function does not take position arguments!")
 
-    print(f"{'-'*30} {model_abrv} {'-'*30}")
-    for outcome, results in results_dict.items():
-        ##Get tuning results
-        best_score = results["best_score"]
-        best_params = results["best_params"]
+    trial = optuna.trial.FixedTrial(best_params)
+    model = model_builder(trial)
+    ##### Train model #####
+    X_train = outcome_data["X_train"]
+    y_train = outcome_data["y_train"].values.ravel()
+    model.fit(X_train, y_train)
 
-        trial = optuna.trial.FixedTrial(best_params)
-        model = model_builder(trial)
-
-        ##### Train model #####
-        X_train = outcome_dict[outcome]["X_train"]
-        y_train = outcome_dict[outcome]["y_train"]
-        model.fit(X_train, y_train.values.ravel())
-
-        ##### Export model #####
-        if model_save_dir:
-            # n_layers only provided if using NN
-            if model_abrv == "nn":
-                save_path = model_save_dir / f"nn.pt"
-                if save_path.exists():
-                    save_path.unlink()
-                save_path.parent.mkdir(exist_ok=True, parents=True)
-                torch.save(
-                    {
-                        "h_params": best_params,
-                        "state_dict": model.model_.state_dict(),
-                        "feature_names_in_": getattr(model, "feature_names_in_"),
-                    },  # type: ignore
-                    save_path,
-                )
-            # for all other models (lr, svc, lgbm)
-            else:
-                save_path = model_save_dir / outcome / f"{model_abrv}.joblib"
-                if save_path.exists():
-                    save_path.unlink()
-                save_path.parent.mkdir(exist_ok=True, parents=True)
-                joblib.dump(model, save_path)
-
-        ##### Get prelim results #####
-        X_val = outcome_dict[outcome]["X_val"]
-        y_val = outcome_dict[outcome]["y_val"]
-
-        ## Neural Network (model_abrv can be nn-2 or nn-3)
+    ##### Export model #####
+    if model_save_dir:
+        # n_layers only provided if using NN
         if model_abrv == "nn":
-            # nn class auto-implements AUROC for .score()
-            train_auc = model.score(X_train, y_train)
-            val_auc = model.score(X_val, y_val)
+            save_path = model_save_dir / f"nn.pt"
+            if save_path.exists():
+                save_path.unlink()
+            save_path.parent.mkdir(exist_ok=True, parents=True)
+            torch.save(
+                {
+                    "h_params": best_params,
+                    "state_dict": model.model_.state_dict(),
+                    "feature_names_in_": getattr(model, "feature_names_in_"),
+                },  # type: ignore
+                save_path,
+            )
+        # for all other models (lr, svc, lgbm)
         else:
-            ## SVC
-            if model_abrv == "svc":
-                # not probabilities, but appropriately ranked
-                x_train_output = model.decision_function(X_train)  # type: ignore
-                x_val_output = model.decision_function(X_val)  # type: ignore
-            ## All other models (lr, lgbm)
-            else:
-                # probability of class 1
-                x_train_output = model.predict_proba(X_train)[:, 1]
-                x_val_output = model.predict_proba(X_val)[:, 1]
-            ## Only compute these separately for non-NN models
-            train_auc = roc_auc_score(y_train, x_train_output)
-            val_auc = roc_auc_score(y_val, x_val_output)
+            save_path = model_save_dir / f"{model_abrv}.joblib"
+            if save_path.exists():
+                save_path.unlink()
+            save_path.parent.mkdir(exist_ok=True, parents=True)
+            joblib.dump(model, save_path)
 
-        ##### Output results #####
-        print(f"Outcome: \t{outcome}")
-        print(f"Best CV AUROC: \t{best_score:.3f}")
-        print(f"Train AUROC: \t{train_auc:.3f}")
-        print(f"Val ROC AUC: \t{val_auc:.3f}")
-        print(f"PARAMS: \t{best_params}")
-        print("*" * 10)
+    ##### Get prelim results #####
+    X_val = outcome_data["X_val"]
+    y_val = outcome_data["y_val"].values.ravel()
+    # probability of class 1
+    if model_abrv == "svc":
+        y_proba_train = model.decision_function(X_train)
+        y_proba_val = model.decision_function(X_val)
+    else:
+        y_proba_train = model.predict_proba(X_train)[:, 1]
+        y_proba_val = model.predict_proba(X_val)[:, 1]
+    ## Get metrics
+    train_auc = roc_auc_score(y_train, y_proba_train)
+    val_auc = roc_auc_score(y_val, y_proba_val)
+    train_ap = average_precision_score(y_train, y_proba_train)
+    val_ap = average_precision_score(y_val, y_proba_val)
+
+    return {
+        "prelim_train_auc": train_auc,
+        "prelim_val_auc": val_auc,
+        "prelim_train_ap": train_ap,
+        "prelim_val_ap": val_ap,
+    }
 
 
 def main():
@@ -726,6 +611,7 @@ def main():
         "lgbm": lightgbm_model_builder,
         "svc": svc_model_builder,
         "xgb": xgb_model_builder,
+        "nn": nn_model_builder,
     }
 
     parser = argparse.ArgumentParser()
@@ -734,7 +620,9 @@ def main():
     parser.add_argument("--scoring", required=True)
     parser.add_argument("--log_file_path", required=True)
     parser.add_argument("--import_dir", required=True)
+    parser.add_argument("--model_save_dir", required=False, default="None")
     parser.add_argument("--n_trials", required=False, type=int, default=500)
+    parser.add_argument("--cv_jobs", required=False, type=int, default=1)
     args = parser.parse_args()
 
     ## Get train data
@@ -748,27 +636,35 @@ def main():
     ## Call tuners
     model_abrv = args.model_abrv
     log_path = Path(args.log_file_path)
-    if model_abrv == "nn":
-        result_dict = tune_model_nn(
-            X_train=X_train,
-            y_train=y_train,
-            outcome_name=outcome_name,
-            scoring=args.scoring,
-            log_file_path=log_path,
-            n_trials=args.n_trials,
-        )
+    if log_path.exists():
+        log_path.unlink()
+    log_path.parent.mkdir(exist_ok=True, parents=True)
+    tune_dict = tune_single_model_outcome(
+        model_builder=MODEL_BUILDER_DICT[model_abrv],
+        model_abrv=model_abrv,
+        outcome_name=outcome_name,
+        X_train=X_train,
+        y_train=y_train,
+        scoring=args.scoring,
+        log_file_path=log_path,
+        n_trials=args.n_trials,
+        cv_jobs=args.cv_jobs,
+    )
+    result_path = log_path.with_suffix(".json")
+
+    ## Get results on val set
+    if args.model_save_dir == "None":
+        model_save_dir = None
     else:
-        result_dict = tune_single_model_outcome(
-            model_builder=MODEL_BUILDER_DICT[model_abrv],
-            model_abrv=model_abrv,
-            outcome_name=outcome_name,
-            X_train=X_train,
-            y_train=y_train,
-            scoring=args.scoring,
-            log_file_path=log_path,
-            n_trials=args.n_trials,
-        )
-    result_path = Path(log_path).with_suffix(".json")
+        model_save_dir = Path(args.model_save_dir)
+    prelim_results_dict = get_prelim_results(
+        best_params=tune_dict["best_params"],
+        outcome_data=outcome_data,
+        model_builder=MODEL_BUILDER_DICT[model_abrv],
+        model_abrv=model_abrv,
+        model_save_dir=model_save_dir,
+    )
+    result_dict = {**tune_dict, **prelim_results_dict}
     with open(result_path, "w") as f:
         json.dump(result_dict, f, indent=4)
 

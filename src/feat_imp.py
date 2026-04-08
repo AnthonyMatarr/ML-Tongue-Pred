@@ -1,17 +1,36 @@
-import warnings
-import copy
-import logging
-from filelock import FileLock
-from src.config import SEED
+from src.config import SEED, DEVICE
+from src.nn_models import load_nn_clf
 
-warnings.filterwarnings("ignore", category=UserWarning)
+import argparse
+import copy
+import joblib
+from pathlib import Path
+
 import shap
-from sklearn.inspection import permutation_importance
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.utils import Bunch
-from datetime import datetime
+
+
+def import_data(import_path, in_dim=None):
+    suffix = import_path.suffix
+    ## MODELS
+    if suffix == ".joblib":
+        imp_data = joblib.load(import_path)
+    elif suffix == ".pt":
+        imp_data = load_nn_clf(import_path, in_dim, DEVICE)
+    elif suffix == ".parquet":
+        imp_data = pd.read_parquet(import_path)
+    elif suffix == ".csv":
+        imp_data = pd.read_csv(import_path, index_col=0)
+    elif suffix == ".tsv":
+        imp_data = pd.read_csv(import_path, index_col=0, sep="\t")
+    elif suffix == ".xlsx":
+        imp_data = pd.read_excel(import_path, index_col=0)
+    else:
+        raise ValueError(
+            f"Unrecognized file: {import_path.name} with suffix: {import_path.suffix}"
+        )
+    return imp_data
 
 
 def get_ohe_cols(df):
@@ -41,7 +60,6 @@ def get_ohe_cols(df):
     -----
     - Columns without underscores are assumed to be non-encoded and are skipped
     - Special cases are excluded from grouping:
-      * Columns starting with 'ETHNICITY_'
       * Columns starting with 'PARTIAL GLOSSECTOMY (HEMIGLOSSECTOMY_'
       * Columns starting with 'COMPOSITE_'
       * Columns starting with 'LOCAL_'
@@ -52,7 +70,6 @@ def get_ohe_cols(df):
     for col in df.columns:
         col_split = col.split("_")
         if len(col_split) == 1 or col_split[0] in [
-            "ETHNICITY",
             "PARTIAL GLOSSECTOMY (HEMIGLOSSECTOMY",
             "COMPOSITE",
             "LOCAL",
@@ -71,7 +88,6 @@ def get_ohe_cols(df):
     return ohe_dict
 
 
-######## Combine one-hot-encoded #######
 def combine_encoded(shap_values, name, mask, return_original=True):
     """
     Combine SHAP values for one-hot encoded features into a single feature importance score.
@@ -187,45 +203,76 @@ def combine_encoded(shap_values, name, mask, return_original=True):
         return sv
 
 
-def get_vals_to_plot(shap_vals):
-    """
-    Reformat SHAP values for plotting by handling different model output structures.
+def get_raw_shap(model, model_name, background_vals, explanation_vals):
+    if model_name in ["lgbm", "xgb"]:
+        explainer = shap.TreeExplainer(
+            model=model,
+            data=background_vals,
+            feature_perturbation="interventional",
+            model_output="probability",
+            feature_names=background_vals.columns.tolist(),
+        )
+        shap_raw = explainer(explanation_vals)
+    elif model_name in ["lr"]:
+        explainer = shap.LinearExplainer(
+            model,
+            background_vals,
+            feature_names=background_vals.columns.tolist(),
+            seed=SEED,
+        )
+        shap_raw = explainer(explanation_vals)
+    elif model_name in ["nn", "stack", "svc"]:
+        if model_name == "svc":
+            from scipy.special import expit
 
-    Converts SHAP Explanation objects with varying dimensionality (2D vs 3D arrays)
-    into a standardized 2D format suitable for SHAP visualization functions. Handles
-    binary classification models that output either single or dual class predictions,
-    as well as multi-class models.
-
-    Parameters
-    ----------
-    shap_vals : shap.Explanation
-        SHAP Explanation object from shap.Explainer(). May contain:
-        - 2D array [samples, features]: Standard format for many models
-        - 3D array [samples, features, classes]: Multi-output or multi-class format
-
-    Returns
-    -------
-    shap.Explanation
-        Reformatted SHAP Explanation with 2D values array [samples, features],
-        ready for plotting with shap.plots functions.
-    """
-    if len(shap_vals.values.shape) == 3:  # 3D array
-        if shap_vals.values.shape[2] == 1:  # Binary classification with single output
-            # DNN
-            shap_vals_to_plot = shap_vals[:, :, 0]
-        elif shap_vals.values.shape[2] >= 2:  # Binary with two outputs or multi-class
-            shap_vals_to_plot = shap_vals[:, :, 1]  # Use positive class
+            explainer = shap.KernelExplainer(
+                lambda X: expit(model.decision_function(X)),
+                background_vals,
+                link="identity",
+            )
         else:
-            shap_vals_to_plot = shap_vals.mean(axis=2)  # Fallback
-    else:  # 2D array
-        # LightGBM, SVC, KNN, Stack, LR-Nomogram
-        shap_vals_to_plot = shap_vals
-    return shap_vals_to_plot
+            explainer = shap.KernelExplainer(
+                model=model.predict_proba,
+                data=background_vals,
+                feature_names=background_vals.columns.tolist(),
+            )
+        # batch explain for intermediate logging of progress
+        explanations = []
+        n = len(explanation_vals)
+        batch_size = 64
+        for i, start in enumerate(range(0, n, batch_size), start=1):
+            end = min(start + batch_size, n)
+            batch = explanation_vals.iloc[start:end]
+            shap_batch = explainer(batch)
+            explanations.append(shap_batch)
+            print(f"KernelExplainer progress: {end}/{n} rows ({end/n:.1%})")
+        # Concat explanations
+        shap_raw = explanations[0]
+        for e in explanations[1:]:
+            shap_raw = shap.Explanation(
+                values=np.vstack([shap_raw.values, e.values]),
+                data=np.vstack([shap_raw.data, e.data]),
+                base_values=shap_raw.base_values,
+                feature_names=shap_raw.feature_names,
+                display_data=(
+                    np.vstack([shap_raw.display_data, e.display_data])
+                    if shap_raw.display_data is not None
+                    else None
+                ),
+                output_names=shap_raw.output_names,
+                output_indexes=None,
+                instance_names=None,
+            )
+    else:
+        raise ValueError(
+            f"Expected model_name to be one of ['lgbm', 'xgb', 'nn', 'lr', 'svc', 'stack']; got {model_name} instead!"
+        )
+    return shap_raw
 
 
-def generate_MAV(shap_vals, feat_order, model_name, result_path=None):
+def generate_MAV(shap_vals, feat_order, result_path):
     """
-    Generate and optionally export mean absolute SHAP value (MASV) importance table.
+    Generate and export mean absolute SHAP value (MASV) importance table.
 
     Computes both absolute and relative mean absolute SHAP values for each feature,
     providing a quantitative measure of feature importance. The relative MASV shows
@@ -241,9 +288,8 @@ def generate_MAV(shap_vals, feat_order, model_name, result_path=None):
         the same features as shap_vals.feature_names (order can differ).
     model_name : str
         Name of the model being analyzed. Used as the Excel sheet name when exporting.
-    result_path : pathlib.Path, optional
-        Path to Excel file where MASV table will be written. If the file exists,
-        the new sheet is appended. If None, results are not exported.
+    result_path : pathlib.Path
+        Path to Excel file where MASV table will be written.
 
     Raises
     ------
@@ -268,6 +314,45 @@ def generate_MAV(shap_vals, feat_order, model_name, result_path=None):
     - **MASV**: Mean absolute SHAP value (raw importance score)
     - **Relative_ MASV**: Percentage of total explanation (0-100%)
     """
+
+    ## HELPER FUNCTION
+    def get_vals_to_plot(shap_vals):
+        """
+        Reformat SHAP values for plotting by handling different model output structures.
+
+        Converts SHAP Explanation objects with varying dimensionality (2D vs 3D arrays)
+        into a standardized 2D format suitable for SHAP visualization functions. Handles
+        binary classification models that output either single or dual class predictions,
+        as well as multi-class models.
+
+        Parameters
+        ----------
+        shap_vals : shap.Explanation
+            SHAP Explanation object from shap.Explainer(). May contain:
+            - 2D array [samples, features]: Standard format for many models
+            - 3D array [samples, features, classes]: Multi-output or multi-class format
+
+        Returns
+        -------
+        shap.Explanation
+            Reformatted SHAP Explanation with 2D values array [samples, features],
+            ready for plotting with shap.plots functions.
+        """
+        if len(shap_vals.values.shape) == 3:  # 3D array
+            if (
+                shap_vals.values.shape[2] == 1
+            ):  # Binary classification with single output
+                shap_vals_to_plot = shap_vals[:, :, 0]
+            elif (
+                shap_vals.values.shape[2] >= 2
+            ):  # Binary with two outputs or multi-class
+                shap_vals_to_plot = shap_vals[:, :, 1]  # Use positive class
+            else:
+                shap_vals_to_plot = shap_vals.mean(axis=2)  # Fallback
+        else:  # 2D array
+            shap_vals_to_plot = shap_vals
+        return shap_vals_to_plot
+
     feat_names = shap_vals.feature_names
     try:
         assert set(feat_names) == set(feat_order)
@@ -277,7 +362,6 @@ def generate_MAV(shap_vals, feat_order, model_name, result_path=None):
         raise AssertionError("Feature names and feature order do not match")
     shap_to_plot = get_vals_to_plot(shap_vals)
     shap_df = pd.DataFrame(shap_to_plot.values, columns=feat_names)
-    absolute_mean_shap = shap_df.abs().mean().reset_index()
     # Get absolute avg + relative abs avg
     absolute_mean_shap = shap_df.abs().mean().reset_index()
     absolute_mean_shap.columns = ["Feature", "MASV"]
@@ -297,21 +381,20 @@ def generate_MAV(shap_vals, feat_order, model_name, result_path=None):
     absolute_mean_shap_reordered = (
         absolute_mean_shap.set_index("Feature").loc[feat_order].reset_index()
     )
-    ######################## Display + Export ########################
-    if result_path:
-        result_path.parent.mkdir(exist_ok=True, parents=True)
-        absolute_mean_shap_reordered.to_excel(result_path)
+    ######################## Export ########################
+    if result_path.exists():
+        result_path.unlink()
+    result_path.parent.mkdir(exist_ok=True, parents=True)
+    absolute_mean_shap_reordered.to_excel(result_path)
 
 
 def get_shap_single_model(
     *_,
-    model,
     model_name,
-    outcome_name,
     feat_order,
-    explanation_vals,
-    background_vals,
-    log_path,
+    model_path,
+    explanation_vals_path,
+    background_vals_path,
     result_path=None,
 ):
     """
@@ -320,78 +403,18 @@ def get_shap_single_model(
     """
     if _ != tuple():
         raise ValueError("This function does not take positional arguments")
-    ######################## Initialize logger ########################
-    log_path.parent.mkdir(exist_ok=True, parents=True)
-    logging.getLogger("shap").setLevel(logging.WARNING)
-    logging.basicConfig(
-        filename=log_path,
-        level=logging.INFO,
-        format="%(asctime)s - %(message)s",
-        filemode="w",
-        force=True,
-    )
-    logging.info(f"Starting SHAP for outcome: {outcome_name}, model: {model_name}")
-    ######################## GET RAW SHAP VALUES ########################
-    if model_name == "lgbm":
-        explainer = shap.TreeExplainer(
-            model=model,
-            data=background_vals,
-            feature_perturbation="interventional",
-            model_output="probability",
-            feature_names=background_vals.columns.tolist(),
-        )
-        shap_raw = explainer(explanation_vals)
-    elif model_name in ["lr", "svc"]:
-        explainer = shap.LinearExplainer(
-            model,
-            background_vals,
-            feature_names=background_vals.columns.tolist(),
-            seed=SEED,
-        )
-        shap_raw = explainer(explanation_vals)
-    elif model_name in ["nn", "stack"]:
-        explainer = shap.KernelExplainer(
-            model=model.predict_proba,
-            data=background_vals,
-            feature_names=background_vals.columns.tolist(),
-        )
-        # shap_raw = explainer(explanation_vals)
-        explanations = []
-        n = len(explanation_vals)
-        batch_size = 64
-        for i, start in enumerate(range(0, n, batch_size), start=1):
-            end = min(start + batch_size, n)
-            batch = explanation_vals.iloc[start:end]
-            shap_batch = explainer(batch)
-            explanations.append(shap_batch)
-            logging.info(f"KernelExplainer progress: {end}/{n} rows ({end/n:.1%})")
-        # shap_raw = shap.Explanation.concatenate(explanations)
-        shap_raw = explanations[0]
-        for e in explanations[1:]:
-            shap_raw = shap.Explanation(
-                values=np.vstack([shap_raw.values, e.values]),
-                data=np.vstack([shap_raw.data, e.data]),
-                base_values=shap_raw.base_values,
-                feature_names=shap_raw.feature_names,
-                display_data=(
-                    np.vstack([shap_raw.display_data, e.display_data])
-                    if shap_raw.display_data is not None
-                    else None
-                ),
-                output_names=shap_raw.output_names,
-                output_indexes=None,
-                instance_names=None,
-            )
-    else:
-        raise ValueError(
-            f"Expected model_name to be one of ['lgbm', 'nn', 'lr', 'svc', 'stack']; got {model_name} instead!"
-        )
-
-    logging.info("SHAP values calculated")
-    ######################## Deal with one-hot encoded ########################
+    # ==============> Load data + models
+    explanation_vals = import_data(explanation_vals_path)
+    background_vals = import_data(background_vals_path)
+    in_dim = explanation_vals.shape[1]
+    model = import_data(model_path, in_dim=in_dim)
+    print("\tData + model loaded!")
+    # ==============> RAW SHAP
+    shap_raw = get_raw_shap(model, model_name, background_vals, explanation_vals)
+    print("\t SHAP VALS computed!")
+    # ===========> Fix OHE
     ohe_dict = get_ohe_cols(explanation_vals)
     ohe_cols = ohe_dict.keys()
-
     raw_feat_order = []
     for col in feat_order:
         if col in ohe_cols:
@@ -399,176 +422,51 @@ def get_shap_single_model(
                 raw_feat_order.append(f"{col}_{sub_col}")
         else:
             raw_feat_order.append(col)
-
-    shap_old = copy.deepcopy(shap_raw)
+    # shap_old = copy.deepcopy(shap_raw)
+    shap_combined = copy.deepcopy(shap_raw)
     for col_name in ohe_cols:
+        mask = [n.startswith(f"{col_name}_") for n in shap_combined.feature_names]
+        if not any(mask):
+            continue
         shap_combined, _ = combine_encoded(
-            shap_old, col_name, [col_name in n for n in shap_old.feature_names]  # type: ignore
+            shap_combined,
+            col_name,
+            mask,
         )
-        shap_old = shap_combined
-
-    logging.info("OHE features combined")
-    ######################## Generate + export MAV table ########################
-    if result_path:
-        # raw_path = result_path / "raw" / f"{outcome_name}.xlsx"
-        # combined_path = result_path / outcome_name / f"{model_name}.xlsx"
-        combined_path = result_path
-    else:
-        # raw_path = None
-        combined_path = None
-
-    # generate_MAV(shap_raw, raw_feat_order, model_name=model_name, result_path=raw_path)
+    print("\t OHE combined!")
+    # ===========> Generate MAV + export
     generate_MAV(
-        shap_combined, feat_order, model_name=model_name, result_path=combined_path
+        shap_combined,
+        feat_order,
+        result_path=result_path,
     )
-    logging.info("Computation complete!")
+    print("\t MAV computed, DONE!")
 
 
-##########################################################################################
-############################## PERMUTAION ##############################
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", required=True)
+    parser.add_argument("--feat_order", type=str, required=True)
+    parser.add_argument("--model_path", required=True)
+    parser.add_argument("--vals_to_explain_path", required=True)
+    parser.add_argument("--background_vals_path", required=True)
+    parser.add_argument("--result_path", required=True)
+    args = parser.parse_args()
 
-
-def batch_perm_imp(
-    estimator,
-    X,
-    y,
-    log_path,
-    n_repeats,
-    scoring,
-    random_state,
-    n_jobs,
-    batch_size,
-):
-    """
-    Compute permutation importance in batches, logging progress.
-
-    Returns a Bunch with the same attributes as sklearn.permutation_importance:
-    - importances: (n_features, n_repeats)
-    - importances_mean: (n_features,)
-    - importances_std: (n_features,)
-    """
-    # Prepare log file
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    # Clear old log
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_path.write_text(
-        f"[{timestamp}] \nStarting permutation importance...\nTest size: {len(y)} \nTotal iterations: {n_repeats} \n"
-    )
-
-    def log(msg):
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(log_path, "a") as f:
-            f.write(f"[{timestamp}] {msg}\n")
-
-    rng = np.random.RandomState(random_state)
-
-    n_done = 0
-    importances_list = []
-    n_features = None
-    while n_done < n_repeats:
-        cur_repeats = min(batch_size, n_repeats - n_done)
-
-        # Generate a fresh seed per batch so permutations differ
-        batch_seed = rng.randint(0, 2**31 - 1)
-        res = permutation_importance(
-            estimator=estimator,
-            X=X,
-            y=y,
-            n_repeats=cur_repeats,
-            random_state=batch_seed,
-            n_jobs=n_jobs,
-            scoring=scoring,
-        )
-        if n_features is None:
-            n_features = res.importances.shape[0]
-
-        importances_list.append(res.importances)
-        n_done += cur_repeats
-
-        log(f"Progress: {n_done}/{n_repeats} iterations completed.")
-    # Concatenate over repeats axis
-    importances = np.concatenate(importances_list, axis=1)  # (n_features, n_repeats)
-
-    # Recompute mean/std across all repeats
-    importances_mean = importances.mean(axis=1)
-    importances_std = importances.std(axis=1, ddof=1)
-
-    return Bunch(
-        importances=importances,
-        importances_mean=importances_mean,
-        importances_std=importances_std,
+    model_path = Path(args.model_path)
+    vals_to_explain_path = Path(args.vals_to_explain_path)
+    background_vals_path = Path(args.background_vals_path)
+    result_path = Path(args.result_path)
+    feat_order = [f.strip() for f in args.feat_order.split(",")]
+    get_shap_single_model(
+        model_name=args.model_name,
+        feat_order=args.feat_order,
+        model_path=model_path,
+        explanation_vals_path=vals_to_explain_path,
+        background_vals_path=background_vals_path,
+        result_path=result_path,
     )
 
 
-def plot_perm_single_model(
-    model_name,
-    model,
-    outcome_name,
-    X,
-    y,
-    log_path,
-    n_repeats=100,
-    result_path=None,
-    show_output=False,
-    scoring="roc_auc",
-    rand_state=SEED,
-    batch_size=5,
-    n_perm_jobs=1,
-):
-    """
-    Calculate and plot permutation feature importance using bar charts.
-
-    Measures decrease in model scoring (auroc by default) when each feature is randomly shuffled
-    """
-    result = batch_perm_imp(
-        estimator=model,
-        X=X,
-        y=y,
-        log_path=log_path,
-        n_repeats=n_repeats,
-        scoring=scoring,
-        random_state=rand_state,
-        n_jobs=n_perm_jobs,
-        batch_size=batch_size,
-    )
-    ## Sort results (most important at the top)
-    sorted_feats = pd.Series(result.importances_mean, index=X.columns).sort_values(
-        ascending=True
-    )
-
-    ## Create plot
-    fig, ax = plt.subplots(figsize=(10, 12))
-    sorted_feats.plot.barh(xerr=result.importances_std, ax=ax)
-    ax.set_title(
-        f"{model_name}-{outcome_name} {scoring.upper()} Permutation Importance over {n_repeats} iterations"
-    )
-    ax.set_xlabel(f"Decrease in mean {scoring}")
-    fig.tight_layout()
-    if result_path:
-        result_path.mkdir(exist_ok=True, parents=True)
-        ## FIGURE
-        fig_path = result_path / f"{outcome_name}.pdf"
-        if fig_path.exists():
-            fig_path.unlink()
-        plt.savefig(fig_path, bbox_inches="tight")
-        if show_output:
-            plt.show()
-        plt.close()
-        ## TABLE
-        table_path = result_path / f"{outcome_name}.xlsx"
-        if table_path.exists():
-            table_path.unlink()
-        # Build results table
-        df_results = pd.DataFrame(
-            {
-                "feature": X.columns,
-                "importance_mean": result.importances_mean,
-                "importance_std": result.importances_std,
-            }
-        )
-
-        # Sort so matches bar plot
-        df_results = df_results.sort_values("importance_mean", ascending=True)
-
-        # Save to Excel
-        df_results.to_excel(table_path, index=False)
+if __name__ == "__main__":
+    main()

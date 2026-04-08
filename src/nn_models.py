@@ -9,7 +9,7 @@ import torch.nn.init as init
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, average_precision_score
 from sklearn.base import BaseEstimator, ClassifierMixin
 
 
@@ -48,7 +48,7 @@ class TabularDataset(Dataset):
         return x, y
 
 
-def get_activation(name, trial=None):
+def get_activation(name, neg_slope=0.01):
     """
     Factory function to create activation layers.
 
@@ -56,9 +56,8 @@ def get_activation(name, trial=None):
     ----------
     name : str
         Activation function name. Supported: 'relu', 'leaky_relu'.
-    trial : optuna.Trial, optional
-        Optuna trial object for hyperparameter tuning. If provided and
-        name='leaky_relu', suggests negative slope parameter.
+    neg_slope : float
+        Negative slope param of leaky relu
 
     Returns
     -------
@@ -73,8 +72,7 @@ def get_activation(name, trial=None):
     if name == "relu":
         return nn.ReLU()
     elif name == "leaky_relu":
-        slope = trial.suggest_float("neg_slope", 1e-3, 1e1, log=True) if trial else 0.01
-        return nn.LeakyReLU(negative_slope=slope)
+        return nn.LeakyReLU(negative_slope=neg_slope)
     else:
         raise ValueError(f"Unknown activation {name}")
 
@@ -269,6 +267,7 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
         device="cpu",
         verbose=0,
         seed=SEED,
+        neg_slope=0.01,
     ):
         self.hidden_size_list = hidden_size_list
         self.dropouts = dropouts
@@ -283,9 +282,8 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
         self.device = device
         self.verbose = verbose
         self.seed = seed
+        self.neg_slope = neg_slope
         self.model_ = None
-        self._fit_X = None
-        self._fit_y = None
 
     def fit(self, X, y):
         """
@@ -303,13 +301,14 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
         self
             Fitted classifier instance.
         """
-        self._fit_X = X.copy()
-        self._fit_y = y.copy()
         self.feature_names_in_ = np.array(X.columns)
         in_dim = X.shape[1]
 
         # Instantiate new activation for each layer
-        acts = [get_activation(self.activation_name) for _ in self.hidden_size_list]
+        acts = [
+            get_activation(name=self.activation_name, neg_slope=self.neg_slope)
+            for _ in self.hidden_size_list
+        ]
 
         # Build model and send to device
         model = MLP(
@@ -321,9 +320,14 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
             self.bias_init,
         ).to(self.device)
 
-        optimizer = optim.Adam(
-            model.parameters(), lr=self.lr, weight_decay=self.weight_decay
-        )
+        if self.optimizer_str == "adamw":
+            optimizer = optim.AdamW(
+                model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            )
+        else:
+            optimizer = optim.Adam(
+                model.parameters(), lr=self.lr, weight_decay=self.weight_decay
+            )
         criterion = nn.BCEWithLogitsLoss()
 
         # Dataset
@@ -347,9 +351,6 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
 
         self.model_ = model
         self.classes_ = np.unique(y)  # Needed for sklearn ClassifierMixin
-        ## Reset
-        self._fit_X = None
-        self._fit_y = None
         return self
 
     def predict_proba(self, X):
@@ -366,6 +367,8 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
         np.ndarray
             Array of shape (n_samples, 2) with probabilities for [class 0, class 1].
         """
+        if self.model_ is None:
+            raise ValueError("Call fit() before predict_proba()")
         self.model_.eval()  # type: ignore
         with torch.no_grad():
             if isinstance(X, pd.DataFrame):
@@ -395,7 +398,7 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
 
     def score(self, X, y):
         """
-        Calculate AUROC score on provided data.
+        Calculate AUPRC score on provided data.
 
         Parameters
         ----------
@@ -411,7 +414,7 @@ class TorchNNClassifier(ClassifierMixin, BaseEstimator):
         """
 
         y_proba = self.predict_proba(X)[:, 1]
-        return roc_auc_score(y, y_proba)
+        return average_precision_score(y, y_proba)
 
 
 def load_nn_clf(data_path, in_dim, device):
@@ -476,6 +479,7 @@ def load_nn_clf(data_path, in_dim, device):
     lr = h_params["lr"]
     weight_decay = h_params["weight_decay"]
     batch_size = h_params["batch_size"]
+    neg_slope = h_params.get("neg_slope", 0.01)
 
     clf = TorchNNClassifier(
         hidden_size_list=hidden_size_list,
@@ -486,9 +490,13 @@ def load_nn_clf(data_path, in_dim, device):
         weight_decay=weight_decay,
         batch_size=batch_size,
         device=device,
+        neg_slope=neg_slope,
     )
 
-    acts = [get_activation(clf.activation_name) for _ in clf.hidden_size_list]
+    acts = [
+        get_activation(name=clf.activation_name, neg_slope=clf.neg_slope)
+        for _ in clf.hidden_size_list
+    ]
     clf.model_ = MLP(
         hidden_size_list=clf.hidden_size_list,
         in_dim=in_dim,

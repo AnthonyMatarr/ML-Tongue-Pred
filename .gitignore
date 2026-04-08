@@ -5,6 +5,13 @@
 src/config.py
 src/__pycache__
 logs/
+swarm_dir/
 
 ## Results
 results/
+models/
+models_old/
+logs_old/
+
+
+app/

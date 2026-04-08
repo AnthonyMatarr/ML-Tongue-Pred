@@ -177,7 +177,8 @@ def get_friedman_df(*_, model_dict, outcome_dict):
     if _ != tuple():
         raise ValueError("This function does not take positional arguments")
     ## Generate df with rows=outcomes, cols=models
-    models = list(model_dict["surg"].keys())
+    # n next(iter(dict.values())) gets arbitrary sub-dict from MODEL_DICT, keys() abstracts model names from sub dict
+    models = list(next(iter(model_dict.values())).keys())
     outcomes = list(model_dict.keys())
     friedman_df = pd.DataFrame(0.0, columns=models, index=outcomes)
     for outcome_name, outcome_data in outcome_dict.items():
