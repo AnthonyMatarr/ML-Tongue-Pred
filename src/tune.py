@@ -143,32 +143,29 @@ def lr_model_builder(trial):
     """
     ########## Get params ##########
     # C (regularization strength)
-    C = trial.suggest_float("C", 1e-4, 1e2, log=True)
-    # Regularization Penalty
-    penalty = trial.suggest_categorical("penalty", ["l1", "l2", "elasticnet"])
-    # Class weight (to offset imbalance)
-    class_weight = trial.suggest_categorical("class_weight", ["balanced", None])
-    # l1 ratio --> only useful for elasticnet (=0 means l2, =1 means l1) = None else
-    if penalty == "elasticnet":
-        l1_ratio = trial.suggest_float("l1_ratio", 0.0, 1.0)
-    else:
-        l1_ratio = None
-    # Solver (dependent on penalty)
-    # elasticnet --> ['saga]
-    # l1 --> ['liblinear', 'saga']
-    # l2 --> ALL
-    if penalty == "elasticnet":
-        solver = "saga"
-    elif penalty == "l1":
-        solver = trial.suggest_categorical("solver_l1", ["liblinear", "saga"])
-    else:
+    c_val = trial.suggest_float("C", 1e-4, 1e2, log=True)
+    # l1 ratio --> penalty tyoe
+    l1_ratio = trial.suggest_float("l1_ratio", 0.0, 1.0)
+    # Fit intercept
+    fit_intercept = trial.suggest_categorical("fit_intercept", [True, False])
+    # Solver dependent on l1_ratio
+    if l1_ratio not in [0.0, 1.0]:
+        solver = "saga"  # elasticnet
+    elif l1_ratio == 0.0:  # Ridge
         solver = trial.suggest_categorical(
-            "solver_l2",
-            ["lbfgs", "liblinear", "saga"],
+            "solver", ["lbfgs", "newton-cg", "newton-cholesky", "sag", "liblinear"]
         )
-
-    intercept_scaling = 1.0
-
+    else:  # ==1 --> Lasso
+        solver = "liblinear"
+    # Intercept scaling (only for liblinear + fit intercept)
+    if (fit_intercept == True) and (solver == "liblinear"):
+        intercept_scaling = trial.suggest_float(
+            "intercept_scaling", 0.01, 10.0, log=True
+        )
+    else:
+        intercept_scaling = 1.0
+    # Class weight (to offset imbalance)
+    pos_weight = trial.suggest_float("pos_weight", 1.0, 20.0)
     # Need more iterations for saga/sag
     if solver in ["saga", "sag"]:
         max_iter = 10000
@@ -176,17 +173,16 @@ def lr_model_builder(trial):
         max_iter = 5000
     ########## Build model ##########
     clf = LogisticRegression(
-        penalty=penalty,
-        C=C,
+        C=c_val,
+        l1_ratio=l1_ratio,
         tol=1e-4,  # default
-        fit_intercept=True,  # default
+        fit_intercept=fit_intercept,
         intercept_scaling=intercept_scaling,
-        class_weight=class_weight,
+        class_weight={0: 1, 1: pos_weight},
         random_state=SEED,
         solver=solver,
         max_iter=max_iter,
-        l1_ratio=l1_ratio,
-        warm_start=False,
+        warm_start=False,  # default
     )
     return clf
 
@@ -269,7 +265,7 @@ def svc_model_builder(trial, probability=False):
     Build an ``sklearn.svm.SVC`` classifier from an Optuna trial.
     """
     ######### Get params ###########
-    C = trial.suggest_float("C", 1e-3, 50, log=True)
+    C = trial.suggest_float("C", 1e-3, 75, log=True)
 
     kernel = trial.suggest_categorical("kernel", ["linear", "poly", "rbf"])
 
@@ -374,19 +370,19 @@ def nn_model_builder(trial):
     """
     n_layers = trial.suggest_int("n_layers", 2, 3)
     ### Hidden Layers ###
-    hl_1 = trial.suggest_int("hl_1", 32, 384)
-    hl_2 = trial.suggest_int("hl_2", 32, 384)
+    hl_1 = trial.suggest_int("hl_1", 32, 512)
+    hl_2 = trial.suggest_int("hl_2", 32, 512)
     h_sizes = [hl_1, hl_2]
     if n_layers == 3:
-        hl_3 = trial.suggest_int("hl_3", 32, 384)
+        hl_3 = trial.suggest_int("hl_3", 32, 512)
         h_sizes.append(hl_3)
 
     ### Dropouts ###
-    dr_1 = trial.suggest_float("dr_1", 0.05, 0.6)
-    dr_2 = trial.suggest_float("dr_2", 0.05, 0.6)
+    dr_1 = trial.suggest_float("dr_1", 1e-3, 0.75)
+    dr_2 = trial.suggest_float("dr_2", 1e-3, 0.75)
     dropouts = [dr_1, dr_2]
     if n_layers == 3:
-        dr_3 = trial.suggest_float("dr_3", 0.05, 0.6)
+        dr_3 = trial.suggest_float("dr_3", 1e-3, 0.75)
         dropouts.append(dr_3)
 
     ####Activation ###
@@ -396,7 +392,7 @@ def nn_model_builder(trial):
     else:
         neg_slope = 0.01  # unused
     ### Epochs ###
-    num_epochs = trial.suggest_int("num_epochs", 20, 300)
+    num_epochs = trial.suggest_int("num_epochs", 20, 500)
 
     ### Optimizer ####
     # opt_choice = trial.suggest_categorical("optimizer", ["adam", "adamw"])

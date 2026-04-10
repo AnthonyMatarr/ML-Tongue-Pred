@@ -20,19 +20,19 @@ def get_swarm_time(minutes):
 ####################################################
 ################## SWARM SPECIFIC ##################
 ####################################################
-def run_swarms(*_, model_list, swarm_log_dir, cmd_dir, n_jobs, n_threads, n_trials):
+def run_tune_swarm(*_, model_list, swarm_log_dir, cmd_dir, n_jobs, n_threads, n_trials):
     for model_abrv in model_list:
         num_threads = 2 * n_jobs * n_threads
         if model_abrv == "nn":
             # needs a bit more resources
             num_threads += 4
-            tot_mins = n_trials * 2.5
-            gb = 10
+            tot_mins = n_trials * 3
+            gb = 5
         elif model_abrv == "svc":
-            tot_mins = n_trials * 6  # some trials take >30 mins, others take <1min
+            tot_mins = n_trials * 3
             gb = 5
         elif model_abrv in ["xgb", "lgbm", "lr"]:
-            tot_mins = n_trials
+            tot_mins = n_trials / 2
             gb = 5
         else:
             raise ValueError(f"Unrecognized model_abrv: {model_abrv}")
@@ -58,3 +58,15 @@ def run_swarms_eval(swarm_log_dir, swarm_path, n_jobs, n_bootstraps):
     swarm_cmd = f"swarm --time={swarm_time} -g {gb} -t {num_threads} --logdir={swarm_log_dir}  --job-name=EVAL --partition={partition} {swarm_path}"
     print(swarm_cmd)
     subprocess.run(swarm_cmd, shell=True)
+
+
+def run_swarms_shap(swarm_log_dir, cmd_dir, outcome_list):
+    for outcome_name in outcome_list:
+        swarm_path = cmd_dir / f"{outcome_name}.swarm"
+        log_dir = swarm_log_dir / f"{outcome_name}.log"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        swarm_time = "5:00:00"
+        partition = "norm"
+        swarm_cmd = f"swarm --time={swarm_time} -g {12} -t 6 --logdir={log_dir}  --job-name={outcome_name.upper()} --partition={partition} {swarm_path}"
+        print(swarm_cmd)
+        subprocess.run(swarm_cmd, shell=True)
