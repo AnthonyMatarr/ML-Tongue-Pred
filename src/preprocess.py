@@ -152,6 +152,8 @@ def transform_export_data(
     y_dev = development_set[target_col_name].copy()
     X_test = test_set[x_cols].copy()
     y_test = test_set[target_col_name].copy()
+    ## Will be the same for every outcome, but initialize here for simplicity
+    test_ids = test_set["CASEID"].copy()
 
     # split development into train and validation
     X_train, X_val, y_train, y_val = train_test_split(
@@ -180,6 +182,7 @@ def transform_export_data(
     y_val.reset_index(drop=True, inplace=True)
     X_test_transformed.reset_index(drop=True, inplace=True)
     y_test.reset_index(drop=True, inplace=True)
+    test_ids.reset_index(drop=True, inplace=True)
 
     for col in X_train_transformed.columns:
         try:
@@ -214,6 +217,7 @@ def transform_export_data(
         y_val.to_excel(data_path / "y_val.xlsx")
         X_test_transformed.to_parquet(data_path / "X_test.parquet")
         y_test.to_excel(data_path / "y_test.xlsx")
+        test_ids.to_excel(data_path / "test_ids.xlsx")
 
     ### Save fitted preprocessor/pipeline ###
     if pipeline_path:

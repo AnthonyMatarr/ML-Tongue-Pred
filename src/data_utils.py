@@ -33,7 +33,7 @@ def get_data(outcome_folder, file_dir=BASE_PATH / "data" / "processed/"):
     For a given outcome, get X/y train, validation, and testing data
     """
     file_path = file_dir / outcome_folder
-    return {
+    data_dict = {
         "X_train": pd.read_parquet(file_path / "X_train.parquet"),
         "y_train": pd.read_excel(file_path / "y_train.xlsx", index_col=0),
         "X_val": pd.read_parquet(file_path / "X_val.parquet"),
@@ -41,6 +41,9 @@ def get_data(outcome_folder, file_dir=BASE_PATH / "data" / "processed/"):
         "X_test": pd.read_parquet(file_path / "X_test.parquet"),
         "y_test": pd.read_excel(file_path / "y_test.xlsx", index_col=0),
     }
+    if "reduced" not in str(file_path):
+        data_dict["test_ids"] = pd.read_excel(file_path / "test_ids.xlsx", index_col=0)
+    return data_dict
 
 
 def get_models(model_prefix_list, outcome, file_dir=BASE_PATH / "models" / "trained"):
