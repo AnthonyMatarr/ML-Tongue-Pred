@@ -60,13 +60,20 @@ def run_swarms_eval(swarm_log_dir, swarm_path, n_jobs, n_bootstraps):
     subprocess.run(swarm_cmd, shell=True)
 
 
-def run_swarms_shap(swarm_log_dir, cmd_dir, outcome_list):
-    for outcome_name in outcome_list:
-        swarm_path = cmd_dir / f"{outcome_name}.swarm"
-        log_dir = swarm_log_dir / f"{outcome_name}.log"
+def run_swarms_shap(swarm_log_dir, cmd_dir, model_list):
+    for model_name in model_list:
+        swarm_path = cmd_dir / f"{model_name}.swarm"
+        log_dir = swarm_log_dir / model_name
         log_dir.mkdir(parents=True, exist_ok=True)
-        swarm_time = "5:00:00"
-        partition = "norm"
-        swarm_cmd = f"swarm --time={swarm_time} -g {12} -t 6 --logdir={log_dir}  --job-name={outcome_name.upper()} --partition={partition} {swarm_path}"
+        if model_name in ["svc", "stack", "nn"]:
+            swarm_time = "12:00:00"
+            partition = "norm"
+            batch_size = 1
+        else:
+            swarm_time = "0:30:00"
+            partition = "quick"
+            batch_size = 6
+
+        swarm_cmd = f"swarm --time={swarm_time} -g {12} -t 6 --logdir={log_dir}  --job-name=SHAP-{model_name.upper()} --partition={partition} -b {batch_size} {swarm_path}"
         print(swarm_cmd)
         subprocess.run(swarm_cmd, shell=True)

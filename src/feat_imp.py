@@ -9,6 +9,7 @@ from pathlib import Path
 import shap
 import numpy as np
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 
 def import_data(import_path, in_dim=None):
@@ -203,7 +204,12 @@ def combine_encoded(shap_values, name, mask, return_original=True):
         return sv
 
 
-def get_raw_shap(model, model_name, background_vals, explanation_vals):
+def get_raw_shap(
+    model,
+    model_name,
+    background_vals,
+    explanation_vals,
+):
     if model_name in ["lgbm", "xgb"]:
         explainer = shap.TreeExplainer(
             model=model,
@@ -222,12 +228,17 @@ def get_raw_shap(model, model_name, background_vals, explanation_vals):
         )
         shap_raw = explainer(explanation_vals)
     elif model_name in ["nn", "stack", "svc"]:
+        ## Suppress feat names warning from SVC and Stack
+        import warnings
+
+        warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
         if model_name == "svc":
             from scipy.special import expit
 
             explainer = shap.KernelExplainer(
                 lambda X: expit(model.decision_function(X)),
                 background_vals,
+                feature_names=background_vals.columns.tolist(),
                 link="identity",
             )
         else:
@@ -243,7 +254,10 @@ def get_raw_shap(model, model_name, background_vals, explanation_vals):
         for i, start in enumerate(range(0, n, batch_size), start=1):
             end = min(start + batch_size, n)
             batch = explanation_vals.iloc[start:end]
-            shap_batch = explainer(batch)
+            shap_batch = explainer(
+                batch,
+                silent=True,  # remove this later
+            )
             explanations.append(shap_batch)
             print(f"KernelExplainer progress: {end}/{n} rows ({end/n:.1%})")
         # Concat explanations
@@ -388,6 +402,32 @@ def generate_MAV(shap_vals, feat_order, result_path):
     absolute_mean_shap_reordered.to_excel(result_path)
 
 
+def get_stratified_background(X, y, n_background, random_state=SEED):
+    """
+    Returns a stratified subsample of X with the same event rate as the full dataset.
+
+    Parameters
+    ----------
+    X : pd.DataFrame
+        Feature data to subsample from
+    y : pd.Series or np.ndarray
+        Labels used for stratification
+    n_background : int
+        Number of background samples to return
+    random_state : int
+        Random seed for reproducibility
+    """
+    frac = n_background / len(X)
+    _, X_background, _, _ = train_test_split(
+        X,
+        y,
+        test_size=frac,
+        stratify=y,
+        random_state=random_state,
+    )
+    return X_background
+
+
 def get_shap_single_model(
     *_,
     model_name,
@@ -395,7 +435,7 @@ def get_shap_single_model(
     model_path,
     explanation_vals_path,
     background_vals_path,
-    result_path=None,
+    n_background=None,
 ):
     """
     Generate SHAP values for a single model-outcome combination.
@@ -408,8 +448,16 @@ def get_shap_single_model(
     background_vals = import_data(background_vals_path)
     in_dim = explanation_vals.shape[1]
     model = import_data(model_path, in_dim=in_dim)
-    print("\tData + model loaded!")
+    print("\t Data + model loaded!")
     # ==============> RAW SHAP
+    if model_name in ["nn", "stack", "svc"]:
+        # Subset
+        print(f"\t Subsampling to {n_background} features...")
+        background_y = import_data(background_vals_path.with_name("y_train.xlsx"))
+        background_vals = get_stratified_background(
+            background_vals, background_y, n_background, random_state=SEED
+        )
+        assert len(background_vals) == n_background
     shap_raw = get_raw_shap(model, model_name, background_vals, explanation_vals)
     print("\t SHAP VALS computed!")
     # ===========> Fix OHE
@@ -434,38 +482,47 @@ def get_shap_single_model(
             mask,
         )
     print("\t OHE combined!")
-    # ===========> Generate MAV + export
+    return shap_combined
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_name", required=True)
+    parser.add_argument("--outcome_name", required=True)
+    parser.add_argument("--feat_order", type=str, required=True)
+    parser.add_argument("--model_path", required=True)
+    parser.add_argument("--data_dir", required=True)
+    parser.add_argument("--result_path", required=True)
+    parser.add_argument("--n_background", required=False, type=int, default=None)
+    args = parser.parse_args()
+    ## Deal with paths
+    model_path = Path(args.model_path)
+    vals_to_explain_path = (
+        Path(args.data_dir) / f"outcome_{args.outcome_name}" / "X_test.parquet"
+    )
+    background_vals_path = (
+        Path(args.data_dir) / f"outcome_{args.outcome_name}" / "X_train.parquet"
+    )
+    result_path = Path(args.result_path)
+    # Clean up feat order input
+    feat_order = [f.strip() for f in args.feat_order.split(",")]
+    # Run SHAP
+    print(f"Starting for outcome: {args.outcome_name}; model: {args.model_name}")
+    shap_combined = get_shap_single_model(
+        model_name=args.model_name,
+        feat_order=feat_order,
+        model_path=model_path,
+        explanation_vals_path=vals_to_explain_path,
+        background_vals_path=background_vals_path,
+        n_background=args.n_background,
+    )
+    # Generate MAV + export
     generate_MAV(
         shap_combined,
         feat_order,
         result_path=result_path,
     )
     print("\t MAV computed, DONE!")
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", required=True)
-    parser.add_argument("--feat_order", type=str, required=True)
-    parser.add_argument("--model_path", required=True)
-    parser.add_argument("--vals_to_explain_path", required=True)
-    parser.add_argument("--background_vals_path", required=True)
-    parser.add_argument("--result_path", required=True)
-    args = parser.parse_args()
-
-    model_path = Path(args.model_path)
-    vals_to_explain_path = Path(args.vals_to_explain_path)
-    background_vals_path = Path(args.background_vals_path)
-    result_path = Path(args.result_path)
-    feat_order = [f.strip() for f in args.feat_order.split(",")]
-    get_shap_single_model(
-        model_name=args.model_name,
-        feat_order=args.feat_order,
-        model_path=model_path,
-        explanation_vals_path=vals_to_explain_path,
-        background_vals_path=background_vals_path,
-        result_path=result_path,
-    )
 
 
 if __name__ == "__main__":
