@@ -1,15 +1,17 @@
 CHOSEN_MODEL_DICT = {
-    "surg": "svc",
-    "bleed": "lgbm",
-    "asp": "lr",
-    # "mort": "stack",
-    "reop": "svc",
+    "any": "xgb",
+    "serious": "xgb",
+    "reoper": "lgbm",
+    "ssi": "lgbm",
+    "pneumo": "lgbm",
+    "bleed": "xgb",
 }
 # Configuration
 OUTCOMES = {
-    "Aspiration Complications": "asp",
+    "Any Complications": "any",
+    "Serious Complications": "serious",
+    "Unplanned Reoperation": "reoper",
+    "Surgical Site Infection": "ssi",
+    "Pneumonia": "pneumo",
     "Bleeding Transfusion": "bleed",
-    "Unplanned Reoperation": "reop",
-    # "Death": "mort",  # binning is so bad for this, would be detrimental to include
-    "Surgical Complications": "surg",
 }
