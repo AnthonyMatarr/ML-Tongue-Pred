@@ -1,4 +1,4 @@
-from src.feat_importance import get_ohe_cols, combine_encoded
+from src.feat_imp import get_ohe_cols, combine_encoded
 import copy
 import numpy as np
 import pandas as pd
@@ -344,15 +344,23 @@ def pretty_feature_name(name):
     return feature_label_map.get(name, name)
 
 
+# TODO: Clean this up
 @st.cache_data
 def compute_shap_data(
-    _explainer, _input_data, _pipeline, processed_data_hash, outcome_name
+    _explainer,
+    _input_data,
+    _pipeline,
+    _full_processed_data,
+    processed_data_hash,
+    outcome_name,
 ):
     """
     Compute SHAP values once and cache them.
-    processed_data_hash and outcome_nameis used to invalidate cache when input changes.
+    processed_data_hash and outcome_name are used to invalidate cache when input changes.
 
     All parameters prefixed with _ to tell Streamlit not to hash them directly.
+    _full_processed_data: full preprocessor output before feature selection, used to
+    supply the scaled value of OPTIME (dropped by feature selection) for scaler inverse transform.
     """
     expected_features = _explainer.feature_names
     input_data = _input_data[expected_features].copy()
@@ -366,8 +374,8 @@ def compute_shap_data(
     assert num_name == "num"
     scaler = num_pipe.named_steps["scaler"]
 
-    # numeric outputs after BMI step (hard-coded order)
-    num_out_cols = [
+    # Full ordered list the scaler was fit on (BMICalculatorArray output order)
+    num_out_cols_full = [
         "AGE",
         "PRALBUM",
         "PRWBC",
@@ -378,14 +386,27 @@ def compute_shap_data(
         "BMI",
     ]
 
-    # Inverse transform numeric features
+    # Columns in the model come from shap_combined + OPTIME (dropped by feat selection after processing)
     feat_names = list(shap_combined.feature_names)
-    num_indices = [feat_names.index(col) for col in num_out_cols]
     x_trans_row = shap_combined.data[0]
-    x_num_scaled = np.array([x_trans_row[i] for i in num_indices]).reshape(1, -1)
-    x_num_original = scaler.inverse_transform(x_num_scaled)
-    num_original_series = pd.Series(x_num_original.ravel(), index=num_out_cols)
 
+    x_full = np.zeros((1, len(num_out_cols_full)))
+    for i, col in enumerate(num_out_cols_full):
+        if col in feat_names:
+            x_full[0, i] = x_trans_row[feat_names.index(col)]
+        elif col in _full_processed_data.columns:
+            x_full[0, i] = float(_full_processed_data[col].iloc[0])
+
+    x_full_original = scaler.inverse_transform(x_full)
+
+    # Only expose columns that are in the model
+    num_original_series = pd.Series(
+        {
+            col: x_full_original[0, i]
+            for i, col in enumerate(num_out_cols_full)
+            if col in feat_names
+        }
+    )
     # Return all data needed for plotting
     return {
         "phi": shap_combined.values[0],

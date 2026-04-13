@@ -1,3 +1,9 @@
+import os
+
+## For XGBoost,LightGBM loading conflicts
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 ## Append path to root
 import sys
 from pathlib import Path
@@ -41,29 +47,26 @@ def main():
     #################################################################################################################
     ################################################### Side Bar ####################################################
     #################################################################################################################
+    # TODO: fill this out
     outcome_info_dict = {
-        "asp": """
-            A postoperative “aspiration” complication is present if a patient experiences any of the following NSQIP-defined events within 30 days of the index operation:
-                
-            &nbsp;&nbsp;&nbsp;&nbsp;•**Postoperative pneumonia**, as defined using CDC/NHSN-based criteria for new infectious pulmonary infiltrate treated with antibiotics. 
-                
-            &nbsp;&nbsp;&nbsp;&nbsp;•**Unplanned postoperative reintubation**, defined as unplanned endotracheal intubation and mechanical ventilation after initial extubation due to respiratory or cardiac decompensation. 
-                
-            &nbsp;&nbsp;&nbsp;&nbsp;•**Prolonged postoperative mechanical ventilation**, defined as requirement for invasive ventilatory support for more than 48 hours after anesthesia end time. 
-            """,
+        "pneumo": """
+            **Pneumonia**, as defined using CDC/NHSN-based criteria for new infectious pulmonary infiltrate treated with antibiotics. 
+            
+            &nbsp;&nbsp;&nbsp;&nbsp;•Infection of the lungs, identified using both radiologic (i.e., infiltrate, consolidation or opacity, cavitation) and clinical (e.g., fever, leukopenia/leukocytosis, culture results, patient symptoms) criteria.
+        """,
         "bleed": "Postoperative bleeding event requiring transfusion of packed red blood cells or whole blood within 72 hours of the end of surgery, recorded when transfusion is given to treat or in response to postoperative hemorrhage.",
-        "reop": "Any unplanned return to the operating room for a surgical procedure related to the index or concurrent procedure within 30 days, at any facility; planned/staged procedures are excluded. ",
-        "surg": """
-            A postoperative “surgical complication” is present if a patient has any surgical site infection or disruption within 30 days of surgery, including:
+        "reoper": "Any unplanned return to the operating room for a surgical procedure related to the index or concurrent procedure within 30 days, at any facility; planned/staged procedures are excluded. ",
+        "ssi": """
+            A postoperative "surgical site infection" is present if a patient has any of the following within 30 days of surgery, including:
             
             &nbsp;&nbsp;&nbsp;&nbsp;•**Superficial incisional SSI** (skin or subcutaneous tissue only). 
             
             &nbsp;&nbsp;&nbsp;&nbsp;•**Deep incisional SSI** (involving fascia or muscle of the incision). 
             
-            &nbsp;&nbsp;&nbsp;&nbsp;•**Organ/space SSI** (infection involving any organ or space opened or manipulated during the operation, excluding the incision itself). 
-            
-            &nbsp;&nbsp;&nbsp;&nbsp;•**Wound disruption/dehiscence** requiring clinical intervention
+            &nbsp;&nbsp;&nbsp;&nbsp;•**Organ/space SSI** (infection involving any organ or space opened or manipulated during the operation, excluding the incision itself).
             """,
+        "serious": "hello",
+        "any": "hello",
     }
     st.sidebar.header("Select Outcomes to Predict")
     selected_outcomes = []

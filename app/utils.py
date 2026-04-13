@@ -1,11 +1,13 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import streamlit as st
 
 BASE_PATH = Path(__file__).parent.parent
 from app.config import CHOSEN_MODEL_DICT
 
 
+@st.cache_data
 def load_population_probs(outcome_name):
     df = pd.read_parquet(
         BASE_PATH
@@ -16,6 +18,7 @@ def load_population_probs(outcome_name):
     return df["prob"].values, df["label"].values
 
 
+@st.cache_data
 def load_bin_thresholds(outcome_name):
     """
     Loads bin thresholds for a given outcome/model from .npz files.
@@ -173,3 +176,55 @@ def transform_unknown_other(input_val):
         return "otherUnknown"
     else:
         return input_val
+
+
+def reduce_set(df):
+    keep_cols = [
+        "AGE",
+        "ASACLAS",
+        "BMI",
+        "COMPOSITE_EXTENDED GLOSSECTOMY",
+        "DIABETES",
+        "DISCANCR",
+        "EXCISION OF TONGUE LESIONS (MINOR)",
+        "FNSTATUS2_Dependent",
+        "FNSTATUS2_Independent",
+        "FNSTATUS2_otherUnknown",
+        "FREE TISSUE TRANSFER (MICROVASCULAR FREE FLAPS) AND COMPLEX FLAP RECONSTRUCTION",
+        "HXCOPD",
+        "HYPERMED",
+        "INOUT",
+        "LARYNGEAL RESECTION AND RECONSTRUCTION PROCEDURES",
+        "LOCAL_REGIONAL TISSUE FLAPS FOR ORAL CAVITY RECONSTRUCTION",
+        "MALIGNANT NEOPLASM_Malignant neoplasm of anterior two-thirds of tongue unspecified",
+        "MALIGNANT NEOPLASM_Malignant neoplasm of base of tongue",
+        "MALIGNANT NEOPLASM_Malignant neoplasm of border of tongue",
+        "MALIGNANT NEOPLASM_Malignant neoplasm of junctional zone of tongue",
+        "MALIGNANT NEOPLASM_Malignant neoplasm of lingual tonsil",
+        "MALIGNANT NEOPLASM_Malignant neoplasm of surface of tongue",
+        "MALIGNANT NEOPLASM_Malignant neoplasm of tongue unspecified",
+        "NECK DISSECTION AND LYMPHADENECTOMY PROCEDURES",
+        "OPERYR",
+        "PARTIAL GLOSSECTOMY (HEMIGLOSSECTOMY_SUBTOTAL)",
+        "PERIPHERAL NERVE REPAIR AND NEUROPLASTY",
+        "PRALBUM",
+        "PRHCT",
+        "PRPLATE",
+        "PRWBC",
+        "RACE_NEW_Asian",
+        "RACE_NEW_Black or African American",
+        "RACE_NEW_White",
+        "RACE_NEW_otherUnknown",
+        "SEX",
+        "SKIN AUTOGRAFTS FOR HEAD AND NECK RECONSTRUCTION",
+        "SMOKE",
+        "TOTAL GLOSSECTOMY (COMPLETE TONGUE REMOVAL)",
+        "TRACHEOSTOMY PROCEDURES",
+        "WNDINF_No",
+        "WNDINF_Unknown(21-24)",
+        "WNDINF_Yes",
+        "WTLOSS_No",
+        "WTLOSS_Unknown(21-24)",
+        "WTLOSS_Yes",
+    ]
+    return df[keep_cols]
