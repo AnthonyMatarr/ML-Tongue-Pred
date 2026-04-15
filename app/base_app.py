@@ -47,15 +47,21 @@ def main():
     #################################################################################################################
     ################################################### Side Bar ####################################################
     #################################################################################################################
-    # TODO: fill this out
     outcome_info_dict = {
         "pneumo": """
-            **Pneumonia**, as defined using CDC/NHSN-based criteria for new infectious pulmonary infiltrate treated with antibiotics. 
-            
-            &nbsp;&nbsp;&nbsp;&nbsp;•Infection of the lungs, identified using both radiologic (i.e., infiltrate, consolidation or opacity, cavitation) and clinical (e.g., fever, leukopenia/leukocytosis, culture results, patient symptoms) criteria.
+            **Postoperative pneumonia** is defined as a new pulmonary infection occurring within 30 days of surgery. 
+            Diagnosis requires radiographic evidence (e.g., infiltrate, consolidation, opacity, or cavitation) 
+            in conjunction with clinical findings such as fever, leukocytosis or leukopenia, microbiologic culture results, 
+            or respiratory symptoms, and is typically managed with antibiotic therapy.
         """,
-        "bleed": "Postoperative bleeding event requiring transfusion of packed red blood cells or whole blood within 72 hours of the end of surgery, recorded when transfusion is given to treat or in response to postoperative hemorrhage.",
-        "reoper": "Any unplanned return to the operating room for a surgical procedure related to the index or concurrent procedure within 30 days, at any facility; planned/staged procedures are excluded. ",
+        "bleed": """
+            **Postoperative bleeding** event requiring transfusion of packed red blood cells or whole blood within 
+            72 hours of the end of surgery, recorded when transfusion is given to treat or in response to postoperative hemorrhage.
+        """,
+        "reoper": """
+            Any unplanned return to the operating room for a surgical procedure related to the index or concurrent
+            procedure within 30 days, at any facility; planned/staged procedures are excluded.
+        """,
         "ssi": """
             A postoperative "surgical site infection" is present if a patient has any of the following within 30 days of surgery, including:
             
@@ -64,9 +70,21 @@ def main():
             &nbsp;&nbsp;&nbsp;&nbsp;•**Deep incisional SSI** (involving fascia or muscle of the incision). 
             
             &nbsp;&nbsp;&nbsp;&nbsp;•**Organ/space SSI** (infection involving any organ or space opened or manipulated during the operation, excluding the incision itself).
-            """,
-        "serious": "hello",
-        "any": "hello",
+        """,
+        "serious": """ 
+            Patients classified as having a serious complication experienced at least one of the following within 30 days postoperatively: 
+            
+            cardiac arrest, myocardial infarction, pneumonia, progressive renal insufficiency, acute renal failure, pulmonary embolism, 
+            deep vein thrombosis, unplanned return to the operating room, deep incisional surgical site infection (SSI), organ/space SSI, 
+            sepsis, unplanned intubation, urinary tract infection, or wound disruption.
+        """,
+        "any": """ 
+            Patients classified as having any complication experienced at least one of the following within 30 days postoperatively: 
+            
+            superficial incisional SSI, deep incisional SSI, organ/space SSI, wound disruption, pneumonia, unplanned intubation, 
+            pulmonary embolism, deep vein thrombosis, prolonged ventilator dependence (>48 hours), urinary tract infection, stroke, 
+            cardiac arrest, myocardial infarction, unplanned return to the operating room, or sepsis.
+        """,
     }
     st.sidebar.header("Select Outcomes to Predict")
     selected_outcomes = []

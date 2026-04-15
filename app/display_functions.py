@@ -318,7 +318,6 @@ def get_dynamic_BMI():
                 height = st.number_input(
                     "Height (in)",
                     min_value=39.3701,
-                    value=st.session_state.height_in,
                     key="height_in",
                     help="Patient's height as recorded preoperatively. Used to calculate BMI.",
                 )
@@ -326,7 +325,6 @@ def get_dynamic_BMI():
                 height_m = st.number_input(
                     "Height (m)",
                     min_value=1.0,
-                    value=st.session_state.height_m,
                     key="height_m",
                     help="Patient's height as recorded preoperatively.",
                 )
@@ -502,6 +500,9 @@ def get_input_data():
                     &nbsp;&nbsp;&nbsp;&nbsp;• Dependent: Requires some or complete assistance with ADLs.
                     """,
             )
+
+    # ================== Op Chars + Resection Procedures ===================
+    with col3:
         with st.expander("**Preoperative Laboratory Values**", expanded=False):
             # Albumin
             alb_input_col, alb_check_col = st.columns([3, 2])
@@ -631,8 +632,6 @@ def get_input_data():
                         help="Most recent platelet level (*10^9/L) within 90 days prior to surgery.",
                     )
 
-    # ================== Op Chars + Resection Procedures ===================
-    with col3:
         with st.expander("**Operative Characteristics**", expanded=False):
             mal_neoplasm = st.selectbox(
                 "Location of Tongue Tumor",
@@ -671,6 +670,7 @@ def get_input_data():
                 index=0,
                 help="Hospital admission status at time of the surgical procedure.",
             )
+
         with st.expander("**Resection Procedures**", expanded=False):
             part_gloss = st.selectbox(
                 "Partial Glossectomy",
@@ -1237,8 +1237,6 @@ def show_clinical_results(display_name, folder_name, input_data):
                     )
 
             with col_b2:
-                print(input_data.shape[1])
-                input_data.to_csv(BASE_PATH / "app" / "dummy.csv")
                 # SHAP feature count input
                 n_feats = st.number_input(
                     "Number of top features to display",
@@ -1403,5 +1401,5 @@ def show_model_details(display_name, outcome_abrv, prob_positive):
     with col_b:
         # TODO: Update this description
         st.markdown(
-            f"Risk categories are defined using cutoffs taken from the {chosen_model} model’s predicted scores in the training and validation cohorts (n=7,026) for the {display_name} outcome. These cutoffs follow a logarithmic scale so that higher‑risk ranges are more finely separated than very low‑risk ranges."
+            f"Risk categories are defined using cutoffs taken from the {chosen_model} model’s predicted scores in the training and validation cohorts (n=7,026) for the {display_name} outcome. These cutoffs follow a logarithmic scale so that lower-risk ranges, where the majority of patients fall, are more finely separated."
         )
