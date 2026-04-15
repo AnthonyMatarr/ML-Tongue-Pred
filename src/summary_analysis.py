@@ -546,8 +546,17 @@ def get_summary_analysis(
     df, outcome_sub_cols_dict, col_order, set_type, export_path=None
 ):
     """
-    df_sub:
-            pd.DataFrameOne of development (08-23) or test (24) dataset
+    Get summary + analysis of all variables
+
+    df: pandas DF
+        Contains all variables
+    outcome_sub_cols_dict: dict{}
+        Keys: outcome_name
+        Values: Aggregated variables used to construct outcome
+    col_order: list[str]
+        Ordered list of variables
+    set_type: str
+        One of "dev", "test", "all"
     """
     #### SUBSET DF #####
     if set_type == "dev":
@@ -556,6 +565,10 @@ def get_summary_analysis(
         df = df[df["OPERYR"] == 2024]
         df = df.drop(["OPERYR"], axis=1)
         col_order = [col for col in col_order if col != "OPERYR"]
+    elif set_type == "all":
+        pass  # do nothing
+    else:
+        raise ValueError("Unrecognized summary type")
 
     ##### GET OUTCOME DICT
     outcome_dict = {}
