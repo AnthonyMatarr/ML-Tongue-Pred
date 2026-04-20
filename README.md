@@ -2,20 +2,22 @@
 
 
 ## Description
-This project implements Logistic Regression, Support Vector Classifier, LightGBM, Neural Network, and Stacked Generalization models to predict post-operative complications (Bleeding, Aspiration, Surgical, Mortality) in glossectomy patients found in the National Surgical Quality Improvement Program (NSQIP) dataset spanning 2008-2024.
+This project implements Logistic Regression, Support Vector Classifier, LightGBM, XGBoost, Neural Network, and Stacked Generalization models to predict post-operative complications (Bleeding, Pneumonia, Unplanned Reoperation, Surgical Site Infection, Serious, and Any complications) in glossectomy patients found in the American College of Surgeons National Surgical Quality Improvement Program (ACS-NSQIP) dataset. Models are developed with data spanning 2008-2023 and validated on a held-out 2024 cohort.
 
 ## Associated Risk Calculator
-A web application was developed to deploy calibrated SVC models for Surgical Wound Complications and Unplanned Re-operation, LR for Aspiration-related Complications, and LightGBM for Bleeding. Mortality was left out due to poor binning and discriminatory performance. The interface can be found [here](https://pro-tongue.streamlit.app/).
-The app may also be run locally with command `uv run -m streamlit run app/base_app.py`, once all [Installation Steps](#installation) are completed.
+A web application was developed deploying **LightGBM** models (Unplanned Reoperation, Surgical Site Infection, Pneumonia) and **XGBoost** models (Bleeding, Serious, Any) to stratify an input patient into one of **Very Low, Low, Moderate, or Very High** risk bins based on calibrated probability output. The interface can be found [here](https://pro-tongue.streamlit.app/).
+
+Once all [Installation Steps](#installation) are completed, the app may also be run locally with command `uv run -m streamlit run app/base_app.py`.
+
 ### Features
 - Select any available outcome from the sidebar
-- Input patient values into appropriate fields (all features used as model inputs)
-- View results:
-  - Risk bin allocation
-  - Feature contribution via regularized SHAP explanation values
-  - Calibrated risk probability
-  - Percentile of model output relative to all test cohort patients
-  - View imputed numerical values as appropriate
+- Enter patient values into appropriate fields
+- Results include:
+  - **Risk stratification** into one of Very Low, Low, Moderate, or Very High risk
+  - **Feature contribution** via regularized SHAP explanation values
+  - **Calibrated risk** probability
+  - **Percentile ranking** of model output relative to 2024 cohort
+  - **Imputed numerical values** displayed as appropriate
 
 ## Project layout
 ### Included directories
@@ -29,6 +31,8 @@ The app may also be run locally with command `uv run -m streamlit run app/base_a
   - `.streamlit/`: Interface styling
   - `deployment_prep.ipynb`: helper file to copy relevant data into `app/`
   - `display_functions.py`: helper file containing modules displayed on interface
+  - `utils.py`: contains helper functions for data handling
+  - `shap_utils.py`: contains helper functions for SHAP analysis
 
 ### Omitted directories
 - ```data/```: raw + processed data, preprocessing pipelines
@@ -44,7 +48,7 @@ Ensure you have [uv](https://docs.astral.sh/uv/getting-started/installation/) in
 ### Steps (run all in command prompt/terminal)
 1. Clone this repository with HTTPS or SSH:
 
-- Using HTTPS (**recommemnded for simplicity**):
+- Using HTTPS (**recommended for simplicity**):
 ```
 git clone https://github.com/AnthonyMatarr/ML-Tongue-Pred.git
 ```
@@ -64,15 +68,10 @@ git fsck --full
 ```
 uv sync --locked
 ```
-5. Paste your base path into the `BASE_PATH` variable in `src/config.py`. To get the path to your current working directory, run:
-- Unix-based systems (Including MacOS)
-```
-pwd
-```
-- Windows OS
-```
-cd
-```
+5. Set the `BASE_PATH` variable in `src/config.py` to your working directory path. To find it, run:
+- **maxOS/Linux:** `pwd`
+- **Windows:** `cd`
+
 ## Troubleshooting
 
 ### macOS: LightGBM Import Error (libomp.dylib)
@@ -94,7 +93,7 @@ Then restart your Python kernel/notebook. This issue may occur after macOS or Ho
     
 ## Custom Modifications
 - [MLstakit](https://github.com/Brritany/MLstatkit) was forked and slightly altered, with some code appended to `MLstatkit/metrics.py` and `MLstatkit/ci.py` to add bin event rate, ICI, and Brier functionality.
-- This change should be consistent once the repo is cloned and `uv sync --locked` is run, however to view these changes or ensure their consistency, the forked repo can be found [here](https://github.com/AnthonyMatarr/MLstatkit), or in the project directory at:
+- This change should be consistent once this repo is cloned and `uv sync --locked` is run, however to view these changes or ensure their consistency, the forked repo can be found [here](https://github.com/AnthonyMatarr/MLstatkit), or in the project directory at:
 ```
 /.venv/lib/python3.12/site-packages/MLstatkit/
 ```

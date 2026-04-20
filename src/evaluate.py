@@ -1,3 +1,10 @@
+import os
+
+## For XGBoost, LightGBM loading conflicts
+# Required for UV v0.8.22
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+os.environ["OMP_NUM_THREADS"] = "1"
+
 from src.config import SEED, DEVICE
 from src.data_utils import get_data, get_models
 from src.nn_models import load_nn_clf
@@ -20,10 +27,10 @@ BIN_NAME_DICT = {
 
 ## y_max (depends on outcome)
 BIN_MAX_DICT = {
-    "ssi": 0.55,
+    "ssi": 0.3,  # 0.55
     "serious": 0.6,
     "any": 0.6,
-    "pneumo": 1,  # 0.25
+    "pneumo": 0.25,  # 1
     "bleed": 0.8,
     "reoper": 0.4,
 }
