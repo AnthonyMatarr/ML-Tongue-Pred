@@ -1149,7 +1149,7 @@ def show_clinical_results(display_name, folder_name, input_data):
                 bin_occur_rate_list = util.bin_occur_rates(folder_name, bin_thresholds)
 
                 st.markdown(
-                    f"In our independent test cohort of {tot_patients:,} breast surgery patients, <b>~{bin_occur_rate_list[bin_idx]:.2%}</b> of those with similar characteristics developed this complication",
+                    f"In our independent test cohort of {tot_patients:,} tongue surgery patients, <b>~{bin_occur_rate_list[bin_idx]:.2%}</b> of those with similar characteristics developed this complication",
                     unsafe_allow_html=True,
                 )
 
