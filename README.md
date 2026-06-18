@@ -1,5 +1,7 @@
 # Development, Validation, and Deployment of a Machine Learning Risk Calculator for 30-Day Complications After Glossectomy for Tongue Cancer
 
+[![DOI](https://zenodo.org/badge/1126361921.svg)](https://doi.org/10.5281/zenodo.20750588)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Description
 This project implements Logistic Regression, Support Vector Classifier, LightGBM, XGBoost, Neural Network, and Stacked Generalization models to predict post-operative complications (Bleeding, Pneumonia, Unplanned Reoperation, Surgical Site Infection, Serious, and Any complications) in glossectomy patients found in the American College of Surgeons National Surgical Quality Improvement Program (ACS-NSQIP) dataset. Models are developed with data spanning 2008-2023 and validated on a held-out 2024 cohort.
@@ -100,3 +102,10 @@ Then restart your Python kernel/notebook. This issue may occur after macOS or Ho
 ## License: MIT
 - Code licensed under MIT
 - No patient data are included
+
+## Citation
+If you use this code, please cite the associated manuscript and software:
+
+**Manuscript:** Matar DY, Matar AY, Nimbalkar A, et al. Artificial Intelligence–Based Risk Prediction Models for Complications After Tongue Cancer Surgery. *JAMA Otolaryngol Head Neck Surg.* Published online June 18, 2026. doi:10.1001/jamaoto.2026.1453
+
+**Software:** Matar AY (2026). ML-Tongue-Pred (v1.1.0). Zenodo. https://doi.org/10.5281/zenodo.20750589
